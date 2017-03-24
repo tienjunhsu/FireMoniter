@@ -2,16 +2,19 @@
 #encoding:utf-8
 import os
 
-import pandas as pd
-import pymongo
+import time
+from WindPy import w
+
+
+def callback(indata):
+    print('callback....')
 
 
 def main():
-    mongo_client = pymongo.MongoClient('192.168.2.112', 27017)
-    collection = mongo_client['fire_moniter']['daily_moniter']
-    cursor = collection.find({'date':'2017-03-23'},{'_id':False})
-    df = pd.DataFrame(list(cursor))
-    df.to_csv('data.csv')
+    w.start()
+    w.wsq('000905.SH', "rt_pct_chg", func=callback)
+    while True:
+        time.sleep(5)
 
 
 if __name__ == '__main__':
