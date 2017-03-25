@@ -79,9 +79,11 @@
             var result = new Array()
             $.ajaxSettings.async = false
             $.getJSON('/tick/', function (response) {
-                result.push(response.data[0])
-                for (var i = 1; i < response.data.length; i++) {
-                    result.push((100 * parseFloat(response.data[i])).toFixed(2))
+                if (response.data.length > 1) {
+                    result.push(response.data[0])
+                    for (var i = 1; i < response.data.length; i++) {
+                        result.push((100 * parseFloat(response.data[i])).toFixed(2))
+                    }
                 }
             })
             return result
@@ -98,12 +100,14 @@
                     setInterval(function () {
                         var result = ontick()
                         //console.log(result)
-                        categories.push(result[0])
-                        series[0].addPoint(parseFloat(result[1]), false, false);
-                        series[1].addPoint(parseFloat(result[2]), false, false);
-                        series[2].addPoint(parseFloat(result[3]), false, false);
-                        series[3].addPoint(parseFloat(result[4]), true, false);
-                    }, 30 * 1000);
+                        if (result.length > 1) {
+                            categories.push(result[0])
+                            series[0].addPoint(parseFloat(result[1]), false, false);
+                            series[1].addPoint(parseFloat(result[2]), false, false);
+                            series[2].addPoint(parseFloat(result[3]), false, false);
+                            series[3].addPoint(parseFloat(result[4]), true, false);
+                        }
+                    }, 30*1000);
                 }
             }
         }
@@ -157,8 +161,8 @@
                 dataLabels: {
                     enabled: false
                 },
-                marker:{
-                    enabled:false
+                marker: {
+                    enabled: false
                 },
                 enableMouseTracking: true
             }
@@ -168,7 +172,7 @@
             enabled: false//版权为fals 就不会再显示highcharts的logo。
         }
 
-        var colors = ['#F39C12','#3498DB','#000000','#ff0000']
+        var colors = ['#F39C12', '#3498DB', '#000000', '#ff0000']
 
         var json = {}
 

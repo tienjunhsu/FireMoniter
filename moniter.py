@@ -36,10 +36,12 @@ r = redis.Redis(host='192.168.2.112', port=6379, db=0)
 
 def background_thread():
     """Example of how to send server generated events to clients."""
-    count = 0
+    #count = 0
     while True:
         socketio.sleep(2)
-        count += 1
+        #count += 1
+        # if not isTrading():
+        #     continue
         data = r.mget('time_stamp', 'sz50', 'hs300', 'zz500', 'strategy')
         for i in range(1,len(data)):
             data[i] = float(data[i])
@@ -86,9 +88,12 @@ def tick():
     response_data = {}
     response_data['retCode'] = 1
     response_data['retMsg'] = 'Success'
-    #response_data['data'] = [time.mktime(datetime.datetime.now().timetuple())]
-    response_data['data'] =r.mget('time_stamp', 'sz50', 'hs300', 'zz500', 'strategy')
-    #response_data['data'] = [datetime.datetime.now().strftime('%Y-%m-%d %H:%M'),random.random(),random.random(),random.random(), random.random()]
+    if isTrading():
+        #response_data['data'] = [time.mktime(datetime.datetime.now().timetuple())]
+        response_data['data'] =r.mget('time_stamp', 'sz50', 'hs300', 'zz500', 'strategy')
+        #response_data['data'] = [datetime.datetime.now().strftime('%Y-%m-%d %H:%M'),random.random(),random.random(),random.random(), random.random()]
+    else:
+        response_data['data'] = []
     return json.dumps(response_data)
 
 
@@ -111,6 +116,19 @@ def disconnect():
     print('Client disconnected', request.sid)
 
 
+def isTrading():
+    #当前是否是交易时段
+    now = datetime.datetime.now().strftime('%H:%M')
+    if now < '09:15':
+        return False
+    elif (now > '11:31') and (now < '12:59'):
+        return False
+    elif now > '15:01':
+        return False
+    else:
+        return True
+
+
 if __name__ == '__main__':
-    #socketio.run(app, debug=True)
-    app.run(host='192.168.2.136',port= 5000,debug=True)
+    socketio.run(app, debug=True)
+    #app.run(host='192.168.2.136',port= 5000,debug=True)

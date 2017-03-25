@@ -11,7 +11,6 @@ import pymongo
 import redis
 import requests
 from WindPy import w
-from apscheduler.schedulers.background import BackgroundScheduler
 
 mongo_client = pymongo.MongoClient('192.168.2.112', 27017)
 collection = mongo_client['fire_moniter']['daily_moniter']
@@ -21,6 +20,8 @@ strategy_names = [u'上证50', u'沪深300', u'中证500', u'策略']
 index_secs = ['000016.SH', '000300.SH', '000905.SH']
 
 r = redis.Redis(host='192.168.2.112',port=6379,db=0)
+
+live = True #脚本是否需要持续运行
 
 class there_global(object):
     # 对某些不可变对象重新赋值会出现全局变量不可用的状态，用这个类构建一个可变对象
@@ -52,10 +53,6 @@ def mWSQCallback(indata, *args, **kwargs):
     d_time = indata.Times[0]
     d_data = indata.Data[0]
     ss = pd.Series(d_data,index=indata.Codes,name='rt_pct_chg')
-    # if g_var.pool_df is None:
-    #     print('g_var.pool_df is None')
-    # else:
-    #     print('heihei')
     if now_tick.last_minute is None:
         now_tick.last_minute = d_time.minute
     elif d_time.minute != now_tick.last_minute:
@@ -71,6 +68,7 @@ def mWSQCallback(indata, *args, **kwargs):
     t_df = g_var.pool_df[~g_var.pool_df.index.isin(index_secs)]
     now_tick.strategy = round((t_df['rt_pct_chg'] * t_df['weight']).sum(), 4)
     r.mset(now_tick.get())
+    print(d_time)
 
 
 def insert_to_db(data):
@@ -122,6 +120,7 @@ def kk():
 def start_w():
     fetch_stockpool()
     w.start()
+    print(len(g_var.pool_df))
     w.wsq(g_var.secs, "rt_pct_chg", func=mWSQCallback)
     #w.wsq("RM709.CZC", "rt_last", func=mWSQCallback)
 
@@ -132,20 +131,16 @@ def cancle_w():
 
 
 if __name__ == '__main__':
-    scheduler = BackgroundScheduler()
-    #scheduler.add_job(tick, 'interval', seconds=1)
-    scheduler.add_job(start_w,'cron',day_of_week = '0-4',hour=9,minute=30,second=0)
-    scheduler.add_job(start_w,'cron',day_of_week = '0-4',hour=13,minute=0,second=0)
-    scheduler.add_job(cancle_w,'cron',day_of_week = '0-4',hour=11,minute=31,second=0)
-    scheduler.add_job(cancle_w,'cron',day_of_week = '0-4',hour=15,minute=1,second=0)
-    scheduler.add_job(start_w,'cron',day_of_week = '0-4',hour=10,minute=06,second=50)
-    scheduler.start()
+    start_w()
     print('Press Ctrl+{0} to exit'.format('Break' if os.name == 'nt' else 'C'))
-
     try:
         # This is here to simulate application activity (which keeps the main thread alive).
-        while True:
+        while live:
+            if datetime.datetime.now().strftime('%H:%M') > '15:01':
+                live = False
+            elif (datetime.datetime.now().strftime('%H:%M') > '11:31') and (datetime.datetime.now().strftime('%H:%M') < '12:58'):
+                live = False
             time.sleep(200)
     except (KeyboardInterrupt, SystemExit):
         # Not strictly necessary if daemonic mode is enabled but should be done if possible
-        scheduler.shutdown()
+        live = False
