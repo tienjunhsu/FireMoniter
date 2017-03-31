@@ -89,7 +89,7 @@ def rt_pct():
         if df is not None and len(df) > 0:
             json_item['data'] += df[['time_stamp', name]].dropna().values.tolist()
         response_data['data'].append(json_item)
-    time_range_item = {'name':'-','data':[[min_time,-0.0000],[max_time,0.0000]]} #用于调整时间轴
+    time_range_item = {'name':'-','data':[[min_time,-0.0000],[max_time,0.0000]],'lineWidth':1} #用于调整时间轴
     response_data['data'].append(time_range_item)
     for name in index_names:
         json_item = {}
@@ -99,7 +99,7 @@ def rt_pct():
         if df is not None and len(df) > 0:
             json_item['data'] = df[['time_stamp', name]].dropna().values.tolist()
         response_data['data'].append(json_item)
-    time_range_item = {'name':'-','data':[[min_time,-0.0000],[max_time,0.0000]],'yAxis':1} #用于调整时间轴
+    time_range_item = {'name':'-','data':[[min_time,-0.0000],[max_time,0.0000]],'yAxis':1,'lineWidth':1} #用于调整时间轴
     response_data['data'].append(time_range_item)
     return json.dumps(response_data)
 

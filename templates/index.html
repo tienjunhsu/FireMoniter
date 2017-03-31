@@ -23,7 +23,7 @@
         <div class="col-md-2 col-sm-4 col-xs-6 tile_stats_count">
             <table>
                 <tr>
-                    <td><span class="count_top"><i class="fa fa-clock-o"></i> 上证50</span></td>
+                    <td ><span class="count_top"><i class="fa fa-clock-o"></i> 上证50</span></td>
                     <td><span class="count_top"><i class="fa fa-clock-o"></i>基差</span></td>
                 </tr>
                 <tr>
@@ -31,26 +31,54 @@
                     <td><span id="ih-sp" class="count red">--</span></td>
                 </tr>
                 <tr>
-                    <td><span class="count_bottom"><i class="green" id="sz50r"><i class="fa fa-sort-asc"></i>--% </i> 策略实时对比</span></td>
+                    <td><span class="count_bottom"><i class="green" id="sz50r"><i class="fa fa-sort-asc"></i>--% </i>策略实时对比</span></td>
+                    <td></td>
                 </tr>
             </table>
         </div>
         <div class="col-md-2 col-sm-4 col-xs-6 tile_stats_count">
-            <span class="count_top"><i class="fa fa-clock-o"></i> 沪深300</span>
-             <div class="count"><span><span class="count" id="hs300" class="red">--%</span>&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp<span id="if-sp" class="count red">--</span>基差</i></span></div>
-            <span class="count_bottom"><i class="green" id="hs300r"><i class="fa fa-sort-asc"></i>--% </i> 策略实时对比</span>
+            <table>
+                <tr>
+                    <td><span class="count_top"><i class="fa fa-clock-o"></i> 沪深300</span></td>
+                    <td><span class="count_top"><i class="fa fa-clock-o"></i>基差</span></td>
+                </tr>
+                <tr>
+                    <td><span class="count" id="hs300" class="red">--%</span></td>
+                    <td><span id="if-sp" class="count red">--</span></td>
+                </tr>
+                <tr>
+                    <td><span class="count_bottom"><i class="green" id="hs300r"><i class="fa fa-sort-asc"></i>--% </i> 策略实时对比</span></td>
+                    <td></td>
+                </tr>
+            </table>
+
         </div>
         <div class="col-md-2 col-sm-4 col-xs-6 tile_stats_count">
-            <span class="count_top"> 中证500</span>
-             <div class="count"><span><span class="count" id="zz500" class="red">--%</span>&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp<span id="ic-sp" class="count red">--</span>基差</i></span></div>
-            <span class="count_bottom"><i class="green" id="zz500r"><i class="fa fa-sort-asc"></i>--% </i> 策略实时对比</span>
+            <table>
+                <tr>
+                    <td><span class="count_top"> 中证500</span></td>
+                    <td><span class="count_top"><i class="fa fa-clock-o"></i>基差</span></td>
+                </tr>
+                <tr>
+                    <td><span class="count" id="zz500" class="red">--%</span></td>
+                    <td><span id="ic-sp" class="count red">--</span></td>
+                </tr>
+                <tr>
+                    <td><span class="count_bottom"><i class="green" id="zz500r"><i class="fa fa-sort-asc"></i>--% </i> 策略实时对比</span></td>
+                    <td></td>
+                </tr>
+            </table>
+
         </div>
         <div class="col-md-2 col-sm-4 col-xs-6 tile_stats_count">
-            <span class="count_top">策略</span>
-            <div class="count red" id="strategy">--%</div>
-            <span class="count_bottom" style="visibility: hidden;"><i class="red" id="strategyr"><i
-                    class="fa fa-sort-desc"></i>--
-            </i> 策略实时对比</span>
+            <table>
+                <tr>
+                    <td><span class="count_top">策略</span></td>
+                </tr>
+                <tr>
+                    <td><span class="count red" id="strategy">--%</span></td>
+                </tr>
+            </table>
         </div>
     </div>
     <!-- /top tiles -->
