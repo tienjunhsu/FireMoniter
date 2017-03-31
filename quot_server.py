@@ -1,12 +1,46 @@
 #! /user/bin/env python
-#encoding:utf-8
-#用tornado 实现行情和websocket服务器
+# encoding:utf-8
+# 用tornado 实现行情和websocket服务器
+import json
+import logging
+import os
+import random
+import time
+
+import datetime
+import redis
+
+import thread
+import tornado.ioloop
+import tornado.web
+import tornado.websocket
+import tornado.options
 import tornado.httpserver
-from tornado.web import Application
-from tornado.websocket import WebSocketHandler
+
+strategies = ['sz50', 'hs300', 'zz500', 'strategy']
+strategy_names = [u'上证50', u'沪深300', u'中证500', u'策略']
+index_secs = ['000016.SH', '000300.SH', '000905.SH']
+
+r = redis.Redis(host='192.168.2.112', port=6379, db=0)
 
 
-class QuotWebSocketHandler(WebSocketHandler):
+# r = None
+
+
+def isTrading():
+    # 当前是否是交易时段
+    now = datetime.datetime.now().strftime('%H:%M')
+    if now < '09:15':
+        return False
+    elif (now > '11:32') and (now < '12:58'):
+        return False
+    elif now > '15:02':
+        return False
+    else:
+        return True
+
+
+class QuotWebSocketHandler(tornado.websocket.WebSocketHandler):
     def allow_draft76(self):
         return True
 
@@ -14,30 +48,64 @@ class QuotWebSocketHandler(WebSocketHandler):
         return True
 
     def open(self):
-        print 'new client opened'
+        # self.write_message('Welcome to WebSocket')
+        logging.debug('new client opened')
+
+        def run(*args):
+            while True:
+                # now = datetime.datetime.now().strftime('%H:%M:%S')
+                # self.write_message(now)
+                time.sleep(2)
+                if isTrading():
+                    data = r.mget('time_stamp', 'sz50', 'hs300', 'zz500', 'strategy', 'ih_spread', 'if_spread',
+                                  'ic_spread')
+                    data[0] = 1000 * float(data[0])
+                    for i in range(1, len(data)):
+                        data[i] = float(data[i])
+                    self.write_message(json.dumps(
+                            {'time_stamp': data[0], 'sz50': data[1], 'hs300': data[2], 'zz500': data[3],
+                             'strategy': data[4], 'ih_spread': data[5], 'if_spread': data[6], 'ic_spread': data[7]}))
+                    # self.write_message(json.dumps({'time_stamp': 1000*time.mktime(datetime.datetime.now().timetuple()), 'sz50': random.random(), 'hs300': random.random(), 'zz500': random.random(), 'strategy': random.random()}))
+
+        thread.start_new_thread(run, ())
 
     def on_close(self):
-        print 'client closed'
+        logging.debug('client closed')
 
     def on_message(self, message):
-        print('on_message:'+message)
+        logging.debug('on_message:' + message)
         self.write_message(message)
 
 
-class QuotApp(Application):
-    def __init__(self):
-        handlers = [
-            #(r'/', IndexPageHandler),
-            (r'/ws', WebSocketHandler),
-        ]
-        super(QuotApp, self).__init__(self, handlers=handlers)
+class ApiHandler(tornado.web.RequestHandler):
+    def get(self, *args):
+        # respon = {'issuccess':'5555'}
+        # respon_json = tornado.escape.json_encode(respon)
+        # self.write(respon_json)
+        self.write("Hello, world00000")
+
+    def post(self):
+        pass
+
+
+ws_app = tornado.web.Application([
+    (r"/", ApiHandler),
+    (r"/api", ApiHandler),
+    (r'/ws', QuotWebSocketHandler),
+])
 
 
 def main():
-    ws_app = Application()
+    tornado.options.parse_command_line()
     server = tornado.httpserver.HTTPServer(ws_app)
-    server.listen(8080)
+    print('start....01')
+    server.listen(5555, address='192.168.2.136')
+    # server.listen(5555)
+    print('start....02')
     tornado.ioloop.IOLoop.instance().start()
+    print('start....03')
+    logging.debug('start.....')
+
 
 if __name__ == '__main__':
     main()

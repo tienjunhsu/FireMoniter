@@ -1,0 +1,1 @@
+python quot_server.py  -log_file_prefix=log/quo_log.log

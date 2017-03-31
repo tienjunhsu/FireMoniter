@@ -12,51 +12,41 @@
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon.png') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/amazeui.min.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+    <!--link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}"-->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/my_am_custom.css') }}">
 </head>
 <body>
 
 <header id="amz-header">
-    <div id="log"></div>
+    <!-- top tiles -->
+    <div class="row tile_count">
+        <div class="col-md-2 col-sm-4 col-xs-6 tile_stats_count">
+            <span class="count_top">上证50</span>
+            <div class="count red" id="sz50">--%</div>
+            <span class="count_bottom"><i class="green" id="sz50r">--% </i> 策略实时对比</span>
+        </div>
+        <div class="col-md-2 col-sm-4 col-xs-6 tile_stats_count">
+            <span class="count_top"><i class="fa fa-clock-o"></i> 沪深300</span>
+            <div class="count red" id="hs300">--%</div>
+            <span class="count_bottom"><i class="green" id="hs300r"><i class="fa fa-sort-asc"></i>--% </i> 策略实时对比</span>
+        </div>
+        <div class="col-md-2 col-sm-4 col-xs-6 tile_stats_count">
+            <span class="count_top"> 中证500</span>
+            <div class="count green" id="zz500">--%</div>
+            <span class="count_bottom"><i class="green" id="zz500r"><i class="fa fa-sort-asc"></i>--% </i> 策略实时对比</span>
+        </div>
+        <div class="col-md-2 col-sm-4 col-xs-6 tile_stats_count">
+            <span class="count_top">策略</span>
+            <div class="count red" id="strategy">--%</div>
+            <span class="count_bottom" style="visibility: hidden;"><i class="red" id="strategyr"><i
+                    class="fa fa-sort-desc"></i>--
+            </i> 策略实时对比</span>
+        </div>
+    </div>
+    <!-- /top tiles -->
 </header>
 
 <section class="" id="amz-main" data-tag="css-utility">
-
-    <!-- List -->
-    <div data-am-widget="list_news" class="am-list-news am-list-news-default">
-        <!--列表标题-->
-        <div class="am-list-news-hd am-cf">
-            <!--带更多链接-->
-        </div>
-        <div class="am-list-news-bd">
-            <table class="table am-table">
-                <thead>
-                <tr>
-                    <td>名称</td>
-                    <td>涨跌幅</td>
-                    <td>策略实时对比</td>
-                </tr>
-                </thead>
-                <tbody>
-                <tr>
-                    <td>上证50</td>
-                    <td id="sz50">---</td>
-                    <td id="sz50r">---</td>
-                </tr>
-                <tr>
-                    <td>沪深300</td>
-                    <td id="hs300">---</td>
-                    <td id="hs300r">---</td>
-                </tr>
-                <tr>
-                    <td>中证500</td>
-                    <td id="zz500">---</td>
-                    <td id="zz500r">---</td>
-                </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
 
     <!-- List -->
     <div data-am-widget="list_news" class="am-list-news am-list-news-default" style="margin-top: 36px;">
@@ -66,7 +56,7 @@
             <h2></h2>
         </div>
         <div class="am-list-news-bd">
-            <div id="statsChart" style="min-height: 400px;padding-left: 0px;padding-right: 0px"></div>
+            <div id="statsChart" style="min-height: 600px;padding-left: 0px;padding-right: 0px"></div>
         </div>
     </div>
 
@@ -74,9 +64,9 @@
 
 <script src="{{ url_for('static', filename='js/jquery.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/amazeui.min.js') }}"></script>
+<script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/1.3.6/socket.io.min.js"></script>
 <script src="http://code.highcharts.com/highcharts.js"></script>
 <script src="http://code.highcharts.com/modules/data.js"></script>
-<script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/1.3.6/socket.io.min.js"></script>
 <script type="text/javascript">
     Highcharts.setOptions({global: {useUTC: false}})
 </script>
@@ -85,18 +75,41 @@
 
 <script type="text/javascript">
     $(document).ready(function () {
-
-        //dingding
-        dd.biz.navigation.setRight({
-            show: false,
-            control: true,
-            text: '发送',
-        })
-        //end for dingding
+        function ontick() {
+            var result = new Array()
+            $.ajaxSettings.async = false
+//            $.getJSON('/tick/', function (response) {
+//                if (response.data.length > 1) {
+//                    result.push(response.data[0])
+//                    for (var i = 1; i < response.data.length; i++) {
+//                        result.push((100 * parseFloat(response.data[i])).toFixed(2))
+//                    }
+//                }
+//            })
+            return result
+        }
 
         var chart = {
             draggable: false,
-            zoomType: 'x'
+            zoomType: 'x',
+            events: {
+                load: function () {
+                    // set up the updating of the chart each second
+                    var series = this.series, chart = this;
+                    var categories = chart.xAxis[0].categories;
+                    setInterval(function () {
+                        var result = ontick()
+                        //console.log(result)
+                        if (result.length > 1) {
+                            categories.push(result[0])
+                            series[0].addPoint(parseFloat(result[1]), false, false);
+                            series[1].addPoint(parseFloat(result[2]), false, false);
+                            series[2].addPoint(parseFloat(result[3]), false, false);
+                            series[3].addPoint(parseFloat(result[4]), true, false);
+                        }
+                    }, 30*1000);
+                }
+            }
         }
 
         var title = {
@@ -111,6 +124,7 @@
 
         var xAxis = {
             type: 'datetime',
+            tickInterval: 30,
             dateTimeLabelFormats: { // don't display the dummy year
                 millisecond: '%H:%M:%S.%L',
                 second: '%H:%M:%S',
@@ -121,7 +135,7 @@
                 month: '%Y-%m',
                 year: '%Y'
             },
-            //categories: product_list_data[0]['data']
+            //categories: []
         }
         var tooltip = {
             dateTimeLabelFormats: {
@@ -147,6 +161,9 @@
                 dataLabels: {
                     enabled: false
                 },
+                marker: {
+                    enabled: false
+                },
                 enableMouseTracking: true
             }
         }
@@ -154,6 +171,8 @@
         var credits = { // 网站标识
             enabled: false//版权为fals 就不会再显示highcharts的logo。
         }
+
+        var colors = ['#F39C12', '#3498DB', '#000000', '#ff0000']
 
         var json = {}
 
@@ -164,38 +183,132 @@
         json.yAxis = yAxis
         json.tooltip = tooltip
         json.plotOptions = plotOptions
+        json.colors = colors
+
+        var legend = {
+            align: 'right',
+            verticalAlign: 'top',
+            borderWidth: 0
+        }
+        json.legend = legend
+
 
         json.credits = credits
-
-        //var chart = $('#statsChart').highcharts(json)
-
         $.getJSON('/rt_pct/', function (response) {
-            var series = response.data
+            xAxis.categories = response.data[4]
+            xdata = response.data[4]
+            ydata01 = response.data[0]
+            var series = [
+                {
+                    name: '上证50',
+                    data: response.data[0]
+                },
+                {
+                    name: '沪深300',
+                    data: response.data[1]
+                },
+                {
+                    name: '中证500',
+                    data: response.data[2]
+                }
+                ,
+                {
+                    name: '策略组合',
+                    data: response.data[3]
+                }
+            ]
             json.series = series
-            //chart.addSeries(series, true)
             $('#statsChart').highcharts(json)
         })
+        var v_sz50 = $('#sz50')
+        var v_sz50r = $('#sz50r')
+        var v_hs300 = $('#hs300')
+        var v_hs300r = $('#hs300r')
+        var v_zz500 = $('#zz500')
+        var v_zz500r = $('#zz500r')
+        var v_strategy = $('#strategy')
+        var v_strategyr = $('#strategyr')
 
-        var socket = io.connect('http://' + document.domain + ':' + location.port)
-        socket.on('onTick', function(msg) {
-            sz50 = parseFloat(msg.sz50).toFixed(4)
-            hs300 = parseFloat(msg.hs300).toFixed(4)
-            zz500 = parseFloat(msg.zz500).toFixed(4)
-            strategy = parseFloat(msg.strategy).toFixed(4)
-            time_stamp = parseFloat(msg.time_stamp)
-                $('#sz50').html((100*sz50).toFixed(2)+'%');
-             $('#sz50r').html((100*(strategy - sz50)).toFixed(2)+'%');
-            $('#hs300').html((100*hs300).toFixed(2)+'%');
-            $('#hs300r').html((100*(strategy - hs300)).toFixed(2)+'%');
-            $('#zz500').html((100*zz500).toFixed(2)+'%');
-            $('#zz500r').html((100*(strategy - zz500)).toFixed(2)+'%');
-            var chart = $('#statsChart').highcharts()
-            chart.series[0].addPoint([1000*time_stamp, sz50], true, true)
-            chart.series[1].addPoint([1000*time_stamp, hs300], true, true)
-            chart.series[2].addPoint([1000*time_stamp, zz500], true, true)
-            chart.series[3].addPoint([1000*time_stamp, strategy], true, true)
-            //console.log(chart.series.length)
-        });
+
+        var socket = io.connect('ws://' + document.domain + ':8080/ws')
+        socket.on('onTick', function (msg) {
+            console.log(msg)
+//            sz50 = parseFloat(msg.sz50).toFixed(4)
+//            hs300 = parseFloat(msg.hs300).toFixed(4)
+//            zz500 = parseFloat(msg.zz500).toFixed(4)
+//            strategy = parseFloat(msg.strategy).toFixed(4)
+//            time_stamp = msg.time_stamp
+//            v_sz50.html((100 * sz50).toFixed(2) + '%');
+//            if (sz50 >= 0) {
+//                if (!v_sz50.hasClass('red')) {
+//                    v_sz50.removeClass('green').addClass('red')
+//                }
+//            } else {
+//                if (!v_sz50.hasClass('green')) {
+//                    v_sz50.removeClass('red').addClass('green')
+//                }
+//            }
+//            v_sz50r.html((100 * (strategy - sz50)).toFixed(2) + '%');
+//            if (strategy - sz50 >= 0) {
+//                if (!v_sz50r.hasClass('red')) {
+//                    v_sz50r.removeClass('green').addClass('red')
+//                }
+//            } else {
+//                if (!v_sz50r.hasClass('green')) {
+//                    v_sz50r.removeClass('red').addClass('green')
+//                }
+//            }
+//            v_hs300.html((100 * hs300).toFixed(2) + '%');
+//            if (hs300 >= 0) {
+//                if (!v_hs300.hasClass('red')) {
+//                    v_hs300.removeClass('green').addClass('red')
+//                }
+//            } else {
+//                if (!v_hs300.hasClass('green')) {
+//                    v_hs300.removeClass('red').addClass('green')
+//                }
+//            }
+//            v_hs300r.html((100 * (strategy - hs300)).toFixed(2) + '%');
+//            if (strategy - hs300 >= 0) {
+//                if (!v_hs300r.hasClass('red')) {
+//                    v_hs300r.removeClass('green').addClass('red')
+//                }
+//            } else {
+//                if (!v_hs300r.hasClass('green')) {
+//                    v_hs300r.removeClass('red').addClass('green')
+//                }
+//            }
+//            v_zz500.html((100 * zz500).toFixed(2) + '%');
+//            if (zz500 >= 0) {
+//                if (!v_zz500.hasClass('red')) {
+//                    v_zz500.removeClass('green').addClass('red')
+//                }
+//            } else {
+//                if (!v_zz500.hasClass('green')) {
+//                    v_zz500.removeClass('red').addClass('green')
+//                }
+//            }
+//            v_zz500r.html((100 * (strategy - zz500)).toFixed(2) + '%');
+//            if (strategy - zz500 >= 0) {
+//                if (!v_zz500r.hasClass('red')) {
+//                    v_zz500r.removeClass('green').addClass('red')
+//                }
+//            } else {
+//                if (!v_zz500r.hasClass('green')) {
+//                    v_zz500r.removeClass('red').addClass('green')
+//                }
+//            }
+//            v_strategy.html((100 * strategy).toFixed(2) + '%');
+//            if (strategy >= 0) {
+//                if (!v_strategy.hasClass('red')) {
+//                    v_strategy.removeClass('green').addClass('red')
+//                }
+//            } else {
+//                if (!v_strategy.hasClass('green')) {
+//                    v_strategy.removeClass('red').addClass('green')
+//                }
+//            }
+        })
 
     })
 </script>

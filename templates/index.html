@@ -21,18 +21,28 @@
     <!-- top tiles -->
     <div class="row tile_count">
         <div class="col-md-2 col-sm-4 col-xs-6 tile_stats_count">
-            <span class="count_top">上证50</span>
-            <div class="count red" id="sz50">--%</div>
-            <span class="count_bottom"><i class="green" id="sz50r">--% </i> 策略实时对比</span>
+            <table>
+                <tr>
+                    <td><span class="count_top"><i class="fa fa-clock-o"></i> 上证50</span></td>
+                    <td><span class="count_top"><i class="fa fa-clock-o"></i>基差</span></td>
+                </tr>
+                <tr>
+                    <td><span class="count" id="sz50" class="red">--%</span></td>
+                    <td><span id="ih-sp" class="count red">--</span></td>
+                </tr>
+                <tr>
+                    <td><span class="count_bottom"><i class="green" id="sz50r"><i class="fa fa-sort-asc"></i>--% </i> 策略实时对比</span></td>
+                </tr>
+            </table>
         </div>
         <div class="col-md-2 col-sm-4 col-xs-6 tile_stats_count">
             <span class="count_top"><i class="fa fa-clock-o"></i> 沪深300</span>
-            <div class="count red" id="hs300">--%</div>
+             <div class="count"><span><span class="count" id="hs300" class="red">--%</span>&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp<span id="if-sp" class="count red">--</span>基差</i></span></div>
             <span class="count_bottom"><i class="green" id="hs300r"><i class="fa fa-sort-asc"></i>--% </i> 策略实时对比</span>
         </div>
         <div class="col-md-2 col-sm-4 col-xs-6 tile_stats_count">
             <span class="count_top"> 中证500</span>
-            <div class="count green" id="zz500">--%</div>
+             <div class="count"><span><span class="count" id="zz500" class="red">--%</span>&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp<span id="ic-sp" class="count red">--</span>基差</i></span></div>
             <span class="count_bottom"><i class="green" id="zz500r"><i class="fa fa-sort-asc"></i>--% </i> 策略实时对比</span>
         </div>
         <div class="col-md-2 col-sm-4 col-xs-6 tile_stats_count">
@@ -56,7 +66,7 @@
             <h2></h2>
         </div>
         <div class="am-list-news-bd">
-            <div id="statsChart" style="min-height: 600px;padding-left: 0px;padding-right: 0px"></div>
+            <div id="statsChart" style="min-height: 800px;padding-left: 0px;padding-right: 0px"></div>
         </div>
     </div>
 
@@ -65,249 +75,341 @@
 <script src="{{ url_for('static', filename='js/jquery.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/amazeui.min.js') }}"></script>
 <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/1.3.6/socket.io.min.js"></script>
-<script src="http://code.highcharts.com/highcharts.js"></script>
-<script src="http://code.highcharts.com/modules/data.js"></script>
-<script type="text/javascript">
-    Highcharts.setOptions({global: {useUTC: false}})
-</script>
-<script src="{{ url_for('static', filename='js/draggable-legend.js') }}"></script>
+<script src="https://img.hcharts.cn/highstock/highstock.js"></script>
+<script src="https://img.hcharts.cn/highcharts/modules/exporting.js"></script>
 <script src="http://g.alicdn.com/dingding/open-develop/1.0.0/dingtalk.js"></script>
 
 <script type="text/javascript">
+    var variable = {{ variable|tojson}};
     $(document).ready(function () {
-        function ontick() {
-            var result = new Array()
-            $.ajaxSettings.async = false
-            $.getJSON('/tick/', function (response) {
-                if (response.data.length > 1) {
-                    result.push(response.data[0])
-                    for (var i = 1; i < response.data.length; i++) {
-                        result.push((100 * parseFloat(response.data[i])).toFixed(2))
-                    }
-                }
-            })
-            return result
-        }
-
-        var chart = {
-            draggable: false,
-            zoomType: 'x',
-            events: {
-                load: function () {
-                    // set up the updating of the chart each second
-                    var series = this.series, chart = this;
-                    var categories = chart.xAxis[0].categories;
-                    setInterval(function () {
-                        var result = ontick()
-                        //console.log(result)
-                        if (result.length > 1) {
-                            categories.push(result[0])
-                            series[0].addPoint(parseFloat(result[1]), false, false);
-                            series[1].addPoint(parseFloat(result[2]), false, false);
-                            series[2].addPoint(parseFloat(result[3]), false, false);
-                            series[3].addPoint(parseFloat(result[4]), true, false);
-                        }
-                    }, 30*1000);
-                }
-            }
-        }
-
-        var title = {
-            text: '涨跌幅走势'
-        }
-
-        var subtitle = {
-            text: document.ontouchstart === undefined ?
-                    'Click and drag in the plot area to zoom in' :
-                    'Pinch the chart to zoom in'
-        }
-
-        var xAxis = {
-            type: 'datetime',
-            tickInterval: 30,
-            dateTimeLabelFormats: { // don't display the dummy year
-                millisecond: '%H:%M:%S.%L',
-                second: '%H:%M:%S',
-                minute: '%H:%M',
-                hour: '%H:%M',
-                day: '%m-%d',
-                week: '%m-%d',
-                month: '%Y-%m',
-                year: '%Y'
-            },
-            //categories: []
-        }
-        var tooltip = {
-            dateTimeLabelFormats: {
-                millisecond: '%H:%M:%S.%L',
-                second: '%H:%M:%S',
-                minute: '%H:%M',
-                hour: '%H:%M',
-                day: '%Y-%m-%d',
-                week: '%m-%d',
-                month: '%Y-%m',
-                year: '%Y'
-            },
-            enabled: true
-        }
-        var yAxis = {
-            title: {
-                text: null
-            },
-        }
-
-        var plotOptions = {
-            line: {
-                dataLabels: {
-                    enabled: false
-                },
-                marker: {
-                    enabled: false
-                },
-                enableMouseTracking: true
-            }
-        }
-
-        var credits = { // 网站标识
-            enabled: false//版权为fals 就不会再显示highcharts的logo。
-        }
-
-        var colors = ['#F39C12', '#3498DB', '#000000', '#ff0000']
-
-        var json = {}
-
-        json.chart = chart
-        json.title = title
-        json.subtitle = subtitle
-        json.xAxis = xAxis
-        json.yAxis = yAxis
-        json.tooltip = tooltip
-        json.plotOptions = plotOptions
-        json.colors = colors
-
-        var legend = {
-            align: 'right',
-            verticalAlign: 'top',
-            borderWidth: 0
-        }
-        json.legend = legend
-
-
-        json.credits = credits
-        $.getJSON('/rt_pct/', function (response) {
-            xAxis.categories = response.data[4]
-            xdata = response.data[4]
-            ydata01 = response.data[0]
-            var series = [
-                {
-                    name: '上证50',
-                    data: response.data[0]
-                },
-                {
-                    name: '沪深300',
-                    data: response.data[1]
-                },
-                {
-                    name: '中证500',
-                    data: response.data[2]
-                }
-                ,
-                {
-                    name: '策略组合',
-                    data: response.data[3]
-                }
-            ]
-            json.series = series
-            $('#statsChart').highcharts(json)
-        })
+        var sz50;
+        var hs300;
+        var zz500;
+        var strategy;
+        var time_stamp;
+        var ih_spread;
+        var if_spread;
+        var ic_spread;
+        var ih_last_close = variable.ih_last_close;
+        var if_last_close = variable.if_last_close;
+        var ic_last_close = variable.ic_last_close;
+        var load_chart = false;
         var v_sz50 = $('#sz50')
         var v_sz50r = $('#sz50r')
+        var v_ih_sp = $('#ih-sp')
         var v_hs300 = $('#hs300')
         var v_hs300r = $('#hs300r')
+        var v_if_sp = $('#if-sp')
         var v_zz500 = $('#zz500')
         var v_zz500r = $('#zz500r')
+        var v_ic_sp = $('#ic-sp')
         var v_strategy = $('#strategy')
         var v_strategyr = $('#strategyr')
 
+        if(variable.hasOwnProperty('sz50')){
+            sz50 = variable.sz50;
+            hs300 = variable.hs300;
+            zz500 = variable.zz500;
+            strategy = variable.strategy;
+            ih_spread = variable.ih_spread;
+            if_spread = variable.if_spread;
+            ic_spread = variable.ic_spread;
+            refreshHead()
+        }
 
-        var socket = io.connect('http://' + document.domain + ':' + location.port + '/')
-        socket.on('onTick', function (msg) {
-            sz50 = parseFloat(msg.sz50).toFixed(4)
-            hs300 = parseFloat(msg.hs300).toFixed(4)
-            zz500 = parseFloat(msg.zz500).toFixed(4)
-            strategy = parseFloat(msg.strategy).toFixed(4)
-            time_stamp = msg.time_stamp
-            v_sz50.html((100 * sz50).toFixed(2) + '%');
-            if (sz50 >= 0) {
-                if (!v_sz50.hasClass('red')) {
-                    v_sz50.removeClass('green').addClass('red')
+        function ontick() {
+            var result = new Array()
+            if (load_chart) {
+                result.push(time_stamp)
+                result.push(sz50)
+                result.push(hs300)
+                result.push(zz500)
+                result.push(strategy)
+                result.push(ih_spread/ih_last_close)
+                result.push(if_spread/if_last_close)
+                result.push(ic_spread/ic_last_close)
+                load_chart = false
+            }
+            return result
+        }
+
+        Highcharts.setOptions({
+            global: {useUTC: false}
+        });
+        var seriesOptions = [],
+        // create the chart when all data is loaded
+                createChart = function () {
+                    $('#statsChart').highcharts('StockChart', {
+                        chart: {
+                            events: {
+                                load: function () {
+                                    // set up the updating of the chart each second
+                                    var series = this.series;
+                                    setInterval(function () {
+                                        result = ontick()
+                                        //console.log(result[6])
+                                        //console.log(result[7])
+                                        if (result.length > 6) {
+                                            //console.log('load....')
+                                            series[0].addPoint([result[0], result[1]], false, false);
+                                            series[1].addPoint([result[0], result[2]], false, false);
+                                            series[2].addPoint([result[0], result[3]], false, false);
+                                            series[3].addPoint([result[0], result[4]], false, false);
+                                            series[5].addPoint([result[0], result[5]], false, false);
+                                            series[6].addPoint([result[0], result[6]], false, false);
+                                            series[7].addPoint([result[0], result[7]], true, false);
+                                        }
+                                        //series.addPoint([x, y], true, false);
+                                    }, 30 * 1000);
+                                }
+                            }
+                        },
+                        rangeSelector: {
+                            selected: 4,
+                            enabled: false
+                        },
+                        xAxis: {
+                            type: 'datetime',
+                            ordinal: false,
+                            breaks: [{ // 中午
+                                from: new Date(2017, 3, 23, 11, 30),
+                                to: new Date(2017, 3, 23, 13, 0),
+                                repeat: 24 * 36e5
+                            }],
+                        },
+                        yAxis: [{
+                            title: {
+                                text: '涨跌幅'
+                            },
+                            height: '70%',
+                            labels: {
+                                formatter: function () {
+                                    return (this.value > 0 ? ' + ' : '') + 100 * this.value + '%';
+                                },
+                                valueDecimals: 2
+                            },
+                            plotLines: [{
+                                value: 0,
+                                width: 2,
+                                color: 'silver'
+                            }]
+                        }, {
+                            title: {
+                                text: '基差'
+                            },
+                            top: '73%',
+                            height: '27%',
+                            labels: {
+                                formatter: function () {
+                                    return (this.value > 0 ? ' + ' : '') + 100 * this.value + '%';
+                                },
+                                valueDecimals: 2
+                            },
+                            plotLines: [{
+                                value: 0,
+                                width: 1,
+                                color: 'silver'
+                            }]
+                        }],
+                        plotOptions: {
+                            line: {
+                                dataLabels: {
+                                    enabled: false
+                                },
+                                marker: {
+                                    enabled: false
+                                },
+                                enableMouseTracking: true
+                            }
+                        },
+                        tooltip: {
+                            pointFormat: '<span style="color:{series.color}">{series.name}</span>: <b>{point.y}</b> <br/>',
+                            valueDecimals: 4
+                        },
+                        legend: {
+                            enabled: true,
+                            align: 'center',
+                            verticalAlign: 'top',
+                            borderWidth: 0
+                        },
+                        credits: { // 网站标识
+                            enabled: false//版权为fals 就不会再显示highcharts的logo。
+                        },
+                        colors: ['#F39C12', '#3498DB', '#9B59B6', '#ff0000', '#FFD700','#F39C12', '#3498DB', '#9B59B6','#FFD700'],
+                        series: seriesOptions
+                    });
+                };
+        $.getJSON('/rt_pct/', function (response) {
+            seriesOptions = response.data
+//            if (seriesOptions[0].data.length > 0) {
+//                sz50 = seriesOptions[0].data[seriesOptions[0].data.length - 1][1]
+//            }
+//            if (seriesOptions[1].data.length > 0) {
+//                hs300 = seriesOptions[1].data[seriesOptions[1].data.length - 1][1]
+//            }
+//            if (seriesOptions[2].data.length > 0) {
+//                zz500 = seriesOptions[2].data[seriesOptions[2].data.length - 1][1]
+//            }
+//            if (seriesOptions[3].data.length > 0) {
+//                strategy = seriesOptions[3].data[seriesOptions[3].data.length - 1][1]
+//            }
+//             if (seriesOptions[5].data.length > 0) {
+//                ih_spread = seriesOptions[5].data[seriesOptions[5].data.length - 1][1]
+//            }
+//             if (seriesOptions[6].data.length > 0) {
+//                if_spread = seriesOptions[6].data[seriesOptions[6].data.length - 1][1]
+//            }
+//             if (seriesOptions[7].data.length > 0) {
+//                ic_spread = seriesOptions[7].data[seriesOptions[7].data.length - 1][1]
+//            }
+//            refreshHead()
+            createChart();
+        });
+        if ('WebSocket' in window) {
+            var ws = new WebSocket('ws://' + document.domain + ':5555/ws')
+        } else {
+            console.log('no websocket')
+            var socket = io.connect('ws://' + document.domain + ':5555/ws')
+        }
+        ws.onmessage = function (e) {
+            //console.log(e.data.toString());
+            data = JSON.parse(e.data.toString())
+            sz50 = data.sz50
+            hs300 = data.hs300
+            zz500 = data.zz500
+            strategy = data.strategy
+            time_stamp = data.time_stamp
+            ih_spread = data.ih_spread
+            if_spread = data.if_spread
+            ic_spread = data.ic_spread
+            load_chart = true
+            refreshHead()
+        }
+        function refreshHead() {
+            if (sz50 != undefined) {
+                v_sz50.html((100 * sz50).toFixed(2) + '%');
+                if (sz50 >= 0) {
+                    if (!v_sz50.hasClass('red')) {
+                        v_sz50.removeClass('green').addClass('red')
+                    }
+                } else {
+                    if (!v_sz50.hasClass('green')) {
+                        v_sz50.removeClass('red').addClass('green')
+                    }
                 }
-            } else {
-                if (!v_sz50.hasClass('green')) {
-                    v_sz50.removeClass('red').addClass('green')
+                if (strategy != undefined) {
+                    v_sz50r.html((100 * (strategy - sz50)).toFixed(2) + '%');
+                    if (strategy - sz50 >= 0) {
+                        if (!v_sz50r.hasClass('red')) {
+                            v_sz50r.removeClass('green').addClass('red')
+                        }
+                    } else {
+                        if (!v_sz50r.hasClass('green')) {
+                            v_sz50r.removeClass('red').addClass('green')
+                        }
+                    }
                 }
             }
-            v_sz50r.html((100 * (strategy - sz50)).toFixed(2) + '%');
-            if (strategy - sz50 >= 0) {
-                if (!v_sz50r.hasClass('red')) {
-                    v_sz50r.removeClass('green').addClass('red')
+            if (hs300 != undefined) {
+                v_hs300.html((100 * hs300).toFixed(2) + '%');
+                if (hs300 >= 0) {
+                    if (!v_hs300.hasClass('red')) {
+                        v_hs300.removeClass('green').addClass('red')
+                    }
+                } else {
+                    if (!v_hs300.hasClass('green')) {
+                        v_hs300.removeClass('red').addClass('green')
+                    }
                 }
-            } else {
-                if (!v_sz50r.hasClass('green')) {
-                    v_sz50r.removeClass('red').addClass('green')
-                }
-            }
-            v_hs300.html((100 * hs300).toFixed(2) + '%');
-            if (hs300 >= 0) {
-                if (!v_hs300.hasClass('red')) {
-                    v_hs300.removeClass('green').addClass('red')
-                }
-            } else {
-                if (!v_hs300.hasClass('green')) {
-                    v_hs300.removeClass('red').addClass('green')
-                }
-            }
-            v_hs300r.html((100 * (strategy - hs300)).toFixed(2) + '%');
-            if (strategy - hs300 >= 0) {
-                if (!v_hs300r.hasClass('red')) {
-                    v_hs300r.removeClass('green').addClass('red')
-                }
-            } else {
-                if (!v_hs300r.hasClass('green')) {
-                    v_hs300r.removeClass('red').addClass('green')
+                if (strategy != undefined) {
+                    v_hs300r.html((100 * (strategy - hs300)).toFixed(2) + '%');
+                    if (strategy - hs300 >= 0) {
+                        if (!v_hs300r.hasClass('red')) {
+                            v_hs300r.removeClass('green').addClass('red')
+                        }
+                    } else {
+                        if (!v_hs300r.hasClass('green')) {
+                            v_hs300r.removeClass('red').addClass('green')
+                        }
+                    }
                 }
             }
-            v_zz500.html((100 * zz500).toFixed(2) + '%');
-            if (zz500 >= 0) {
-                if (!v_zz500.hasClass('red')) {
-                    v_zz500.removeClass('green').addClass('red')
+
+            if (zz500 != undefined) {
+                v_zz500.html((100 * zz500).toFixed(2) + '%');
+                if (zz500 >= 0) {
+                    if (!v_zz500.hasClass('red')) {
+                        v_zz500.removeClass('green').addClass('red')
+                    }
+                } else {
+                    if (!v_zz500.hasClass('green')) {
+                        v_zz500.removeClass('red').addClass('green')
+                    }
                 }
-            } else {
-                if (!v_zz500.hasClass('green')) {
-                    v_zz500.removeClass('red').addClass('green')
-                }
-            }
-            v_zz500r.html((100 * (strategy - zz500)).toFixed(2) + '%');
-            if (strategy - zz500 >= 0) {
-                if (!v_zz500r.hasClass('red')) {
-                    v_zz500r.removeClass('green').addClass('red')
-                }
-            } else {
-                if (!v_zz500r.hasClass('green')) {
-                    v_zz500r.removeClass('red').addClass('green')
-                }
-            }
-            v_strategy.html((100 * strategy).toFixed(2) + '%');
-            if (strategy >= 0) {
-                if (!v_strategy.hasClass('red')) {
-                    v_strategy.removeClass('green').addClass('red')
-                }
-            } else {
-                if (!v_strategy.hasClass('green')) {
-                    v_strategy.removeClass('red').addClass('green')
+                if (strategy != undefined) {
+                    v_zz500r.html((100 * (strategy - zz500)).toFixed(2) + '%');
+                    if (strategy - zz500 >= 0) {
+                        if (!v_zz500r.hasClass('red')) {
+                            v_zz500r.removeClass('green').addClass('red')
+                        }
+                    } else {
+                        if (!v_zz500r.hasClass('green')) {
+                            v_zz500r.removeClass('red').addClass('green')
+                        }
+                    }
                 }
             }
-        })
+
+            if (strategy != undefined) {
+                v_strategy.html((100 * strategy).toFixed(2) + '%');
+                if (strategy >= 0) {
+                    if (!v_strategy.hasClass('red')) {
+                        v_strategy.removeClass('green').addClass('red')
+                    }
+                } else {
+                    if (!v_strategy.hasClass('green')) {
+                        v_strategy.removeClass('red').addClass('green')
+                    }
+                }
+            }
+
+            if(ih_spread != undefined) {
+                v_ih_sp.html(ih_spread.toFixed(2))
+                 if (ih_spread >= 0) {
+                    if (!v_ih_sp.hasClass('red')) {
+                        v_ih_sp.removeClass('green').addClass('red')
+                    }
+                } else {
+                    if (!v_ih_sp.hasClass('green')) {
+                        v_ih_sp.removeClass('red').addClass('green')
+                    }
+                }
+            }
+            if(if_spread != undefined) {
+                v_if_sp.html(if_spread.toFixed(2))
+                 if (if_spread >= 0) {
+                    if (!v_if_sp.hasClass('red')) {
+                        v_if_sp.removeClass('green').addClass('red')
+                    }
+                } else {
+                    if (!v_if_sp.hasClass('green')) {
+                        v_if_sp.removeClass('red').addClass('green')
+                    }
+                }
+            }
+            if(ic_spread != undefined) {
+                v_ic_sp.html(ic_spread.toFixed(2))
+                 if (ic_spread >= 0) {
+                    if (!v_ic_sp.hasClass('red')) {
+                        v_ic_sp.removeClass('green').addClass('red')
+                    }
+                } else {
+                    if (!v_ic_sp.hasClass('green')) {
+                        v_ic_sp.removeClass('red').addClass('green')
+                    }
+                }
+            }
+        };
 
     })
 </script>

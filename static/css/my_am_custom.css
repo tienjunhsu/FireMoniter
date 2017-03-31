@@ -79,14 +79,18 @@
 }
 
 .tile_count .tile_stats_count {
-    width: 25%;
-    float: left;
     border-bottom: 1px solid #D9DEE4;
     padding: 0 10px 0 20px;
     text-overflow: ellipsis;
     overflow: hidden;
     white-space: nowrap;
     position: relative;
+}
+.tile_count .tile_stats_count .count_middle{
+    overflow: auto;
+}
+.tile_count .tile_stats_count .count_middle_i {
+    float: left;
 }
 
 @media (min-width: 992px) {
@@ -101,7 +105,7 @@
     content: "";
     position: absolute;
     left: 0;
-    height: 65px;
+    height: 100%;
     border-left: 2px solid #ADB2B5;
     margin-top: 10px;
 }
@@ -151,11 +155,29 @@
         font-size: 13px;
     }
 }
-
-.tile_count .tile_stats_count .count_bottom i {
-    width: 12px;
+/* 小屏幕（平板，大于等于 768px） */
+@media (min-width: 640px) {
+    .tile_count .tile_stats_count {
+        width: 50%;
+        float: left;
+    }
 }
 
+/* 中等屏幕（桌面显示器，大于等于 992px） */
+@media (min-width: 992px) {
+    .tile_count .tile_stats_count {
+        width: 33.333333%;
+        float: left;
+    }
+}
+
+/* 大屏幕（大桌面显示器，大于等于 1200px） */
+@media (min-width: 1200px) {
+    .tile_count .tile_stats_count {
+        width: 25%;
+        float: left;
+    }
+}
 /**  ------------------------------------------  **/
 .blue {
     color: #3498DB;
