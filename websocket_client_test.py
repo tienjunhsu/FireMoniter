@@ -28,7 +28,7 @@ def on_open(ws):
 if __name__ == "__main__":
     websocket.enableTrace(True)
     ws = websocket.WebSocketApp(
-        "ws://192.168.1.100:5555/ws",
+        "ws://192.168.2.136:5555/ws",
         on_message = on_message,
         on_error = on_error,
         on_close = on_close

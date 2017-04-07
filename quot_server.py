@@ -50,31 +50,38 @@ class QuotWebSocketHandler(tornado.websocket.WebSocketHandler):
     def open(self):
         # self.write_message('Welcome to WebSocket')
         logging.debug('new client opened')
+        self.client_closed = False
 
         def run(*args):
-            while True:
+            while True and not self.client_closed:
                 # now = datetime.datetime.now().strftime('%H:%M:%S')
                 # self.write_message(now)
                 time.sleep(2)
+                print('close code is ...:'+str(self.close_code))
                 if isTrading():
                     data = r.mget('time_stamp', 'sz50', 'hs300', 'zz500', 'strategy', 'ih_spread', 'if_spread',
                                   'ic_spread')
                     data[0] = 1000 * float(data[0])
                     for i in range(1, len(data)):
                         data[i] = float(data[i])
-                    self.write_message(json.dumps(
-                            {'time_stamp': data[0], 'sz50': data[1], 'hs300': data[2], 'zz500': data[3],
-                             'strategy': data[4], 'ih_spread': data[5], 'if_spread': data[6], 'ic_spread': data[7]}))
+                    try:
+                        self.write_message(json.dumps(
+                                {'time_stamp': data[0], 'sz50': data[1], 'hs300': data[2], 'zz500': data[3],
+                                 'strategy': data[4], 'ih_spread': data[5], 'if_spread': data[6], 'ic_spread': data[7]}))
+                    except:
+                         logging.error("Error sending message")
                     # self.write_message(json.dumps({'time_stamp': 1000*time.mktime(datetime.datetime.now().timetuple()), 'sz50': random.random(), 'hs300': random.random(), 'zz500': random.random(), 'strategy': random.random()}))
 
         thread.start_new_thread(run, ())
 
     def on_close(self):
         logging.debug('client closed')
+        print('client closed')
+        self.client_closed = True
 
     def on_message(self, message):
         logging.debug('on_message:' + message)
-        self.write_message(message)
+        #self.write_message(message)
 
 
 class ApiHandler(tornado.web.RequestHandler):

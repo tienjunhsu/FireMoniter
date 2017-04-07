@@ -23,7 +23,7 @@ data_db = mongo_client['fire_data']
 
 strategies = ['sz50', 'hs300', 'zz500', 'strategy']
 index_names = ['ih_spread', 'if_spread', 'ic_spread']
-index_last_close = {'ih_spread':2346.67, 'if_spread':3436.76, 'ic_spread':6375.74}
+index_code_dicts = {'ih_spread':'000016.SH', 'if_spread':'000300.SH', 'ic_spread':'000905.SH'}
 basis_name = {'ih_spread':u'IH基差', 'if_spread':u'IF基差', 'ic_spread':u'IC基差'}
 # strategies = ['sz50', 'hs300', 'zz500']
 strategy_names = [u'上证50', u'沪深300', u'中证500', u'策略']
@@ -36,29 +36,50 @@ r = redis.Redis(host='192.168.2.112', port=6379, db=0)
 @app.route('/')
 def index():
     today = datetime.date.today().strftime('%Y-%m-%d')
-    cursor = collection.find({'date': today}, {'_id': False}).sort('time_stamp', -1).limit(1)
+    trade_days = data_db['trade_day'].find({'date':{'$lte':today}},{'_id':False}).sort('date', -1).limit(2)
+    trade_days = list(trade_days)
+    if trade_days[0]['date'] < today:
+        last_trade_day = trade_days[0]['date']
+        current_trade_day = last_trade_day
+    else:
+        last_trade_day = trade_days[1]['date']
+        current_trade_day = trade_days[0]['date']
+    cursor = collection.find({'date': current_trade_day}, {'_id': False}).sort('time_stamp', -1).limit(1)
     variable = {}
     if cursor.count() > 0:
         variable = list(cursor)[0]
-    trade_days = data_db['trade_day'].find({'date':{'$lte':today}},{'_id':False}).sort('date', -1).limit(2)
-    trade_days = list(trade_days)
-    print(trade_days[0]['date'])
+    index_cursor = data_db['index_data'].find({'date':last_trade_day},{'_id':0,'close':1,'wind_code':1})
+    df = pd.DataFrame(list(index_cursor))
+    df = df.set_index('wind_code')
     # ih_last_close =  ts.get_k_data('000016',index=True,start=last_day,end=last_day).close.iloc[0]
     # if_last_close =  ts.get_k_data('000300',index=True,start=last_day,end=last_day).close.iloc[0]
     # ic_last_close =  ts.get_k_data('000905',index=True,start=last_day,end=last_day).close.iloc[0]
     # variable['ih_last_close'] = ih_last_close
     # variable['if_last_close'] = ih_last_close
     # variable['ic_last_close'] = ih_last_close
-    variable['ih_last_close'] = 2346.67
-    variable['if_last_close'] = 3436.76
-    variable['ic_last_close'] = 6375.74
+    variable['ih_last_close'] = df.loc['000016.SH'].close
+    variable['if_last_close'] = df.loc['000300.SH'].close
+    variable['ic_last_close'] = df.loc['000905.SH'].close
     return render_template('index.html',variable=variable)
 
 
 @app.route('/rt_pct/')
 def rt_pct():
-    date = datetime.date.today().strftime('%Y-%m-%d')
-    cursor = collection.find({'date': date}, {'_id': False})
+    today = datetime.date.today().strftime('%Y-%m-%d')
+    trade_days = data_db['trade_day'].find({'date':{'$lte':today}},{'_id':False}).sort('date', -1).limit(2)
+    trade_days = list(trade_days)
+    if trade_days[0]['date'] < today:
+        last_trade_day = trade_days[0]['date']
+        current_trade_day = last_trade_day
+    else:
+        last_trade_day = trade_days[1]['date']
+        current_trade_day = trade_days[0]['date']
+
+    index_cursor = data_db['index_data'].find({'date':last_trade_day},{'_id':0,'close':1,'wind_code':1})
+    index_df = pd.DataFrame(list(index_cursor))
+    index_df = index_df.set_index('wind_code')
+
+    cursor = collection.find({'date': current_trade_day}, {'_id': False})
     response_data = {}
     response_data['retCode'] = 1
     response_data['retMsg'] = 'Success'
@@ -70,7 +91,7 @@ def rt_pct():
     if df is not None and len(df) > 0:
         df.loc[:, 'time_stamp'] = 1000 * df['time_stamp']
         for index_name in index_names:
-            df.loc[:,index_name] = df[index_name]/index_last_close[index_name]
+            df.loc[:,index_name] = df[index_name]/index_df.loc[index_code_dicts[index_name]].close
     today = datetime.date.today().strftime('%Y-%m-%d')
     min_time = today + ' 09:14:00'
     max_time = today + ' 15:01:00'
