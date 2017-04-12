@@ -1,0 +1,53 @@
+{
+    "products": [
+        {
+            "name": "一号产品",
+            "clientType": "ims",
+            "bull_amount": 8735000.0,
+            "ic_amount": 7650000.0,
+            "if_amount": 7650000.0,
+            "ih_amount": 7650000.0
+        },
+        {
+            "name": "兴鑫",
+            "clientType": "pb",
+            "bull_amount": 3125000.0,
+            "ic_amount": 11500000.0,
+            "if_amount": 11500000.0,
+            "ih_amount": 11500000.0
+        },
+       {
+            "name": "华泰吴雪敏",
+            "clientType": "pb",
+            "bull_amount": 21350000.0,
+            "ic_amount": 0.0,
+            "if_amount": 0.0,
+            "ih_amount": 0.0
+        },
+      {
+            "name": "华泰沙莎",
+            "clientType": "pb",
+            "bull_amount": 5500000.0,
+            "ic_amount": 0.0,
+            "if_amount": 0.0,
+            "ih_amount": 0.0
+        },
+      {
+            "name": "术源九州",
+            "clientType": "pb",
+            "bull_amount": 17250000.0,
+            "ic_amount": 0.0,
+            "if_amount": 0.0,
+            "ih_amount": 0.0
+        },
+      {
+            "name": "自强一号",
+            "clientType": "pb",
+            "bull_amount": 6180000.0,
+            "ic_amount": 0.0,
+            "if_amount": 0.0,
+            "ih_amount": 0.0
+        }
+
+    ]
+}
