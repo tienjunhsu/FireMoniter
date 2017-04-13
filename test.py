@@ -6,22 +6,51 @@ import pymongo
 from WindPy import w
 import tushare as ts
 
-mongo_client = pymongo.MongoClient('192.168.2.112', 27017)
-collection = mongo_client['fire_data']['stock_basics']
+output_mongo_client = pymongo.MongoClient('192.168.2.181', 27017)
+output_db = output_mongo_client['fire_trade']
+
+monitor_mongo_client = pymongo.MongoClient('192.168.2.112', 27017)
+moniter_db = monitor_mongo_client['fire_moniter']
 
 
 def main():
-    # w.start()
-    # result = w.tdays("2017-01-01", "2017-12-31", "")
-    # df = pd.DataFrame({'date':result.Data[0]})
-    # df.date = df.date.dt.strftime('%Y-%m-%d')
-    # collection.insert_many(df.to_dict('records'))
-    df = ts.get_stock_basics()
+    cursor = output_db['strategy_list_output01'].find({'date': '2017-04-09', 'strategy': 'list_1_0.0506'},
+                                                          {'_id': 0, 'code': 1, 'weight': 1})
+    df = pd.DataFrame(list(cursor))
+    df.loc[:,'weight'] = df.weight/df.weight.sum()
+    close_cursor = monitor_mongo_client['fire_data']['close_data'].find({'date':'2017-04-12','code':{'$in':df.code.tolist()}},{'_id':0,'close':1,'code':1,'name':1})
+    close_df = pd.DataFrame(list(close_cursor))
+    close_df = close_df.set_index('code')
+    df = df.set_index('code')
+    df = df.join(close_df)
+    df['position_num'] = 0
     df = df.reset_index()
-    # collection.insert_many(df.to_dict('records'))
-    print(df.head())
+    df01 = df[df.code.str.startswith('60')]
+    df = df[~df.code.str.startswith('60')]
+    df01.loc[:,'code'] = 'SH'+df01.code
+    df.loc[:,'code'] = 'SZ'+df.code
+    df = df.append(df01,ignore_index=True)
+    totalAmount = 500000.0
+    df = approach_totalAmount(totalAmount,df)
+    df = df[df.position_num > 0]
+    df['position_num01'] = (100*((df.position_num//2)//100)).astype(int)
+    df.loc[:,'position_num'] = (df.position_num - df.position_num01).astype(int)
+    df = df[['code','weight','close','position_num','position_num01']]
+    df.to_csv('open_test_pool.csv',index=False)
 
 
+def approach_totalAmount(totalAmount,df):
+    #获取计划持仓股数，逼近总金额
+    #totalAmount是计划持仓的总金额，df是带有收盘价的策略生成的票池DataFrame
+    delta = 1000.0 #最小的迭代步长
+    df.position_num = 100 * ((totalAmount * df.weight) // (100 * df.close))
+    real_total = (df.position_num * df.close).sum()
+    new_totalAmount = totalAmount
+    while real_total < totalAmount:
+        new_totalAmount +=  min(totalAmount - real_total,delta)
+        df.position_num = 100 * ((new_totalAmount * df.weight) // (100 * df.close))
+        real_total = (df.position_num * df.close).sum()
+    return df
 
 if __name__ == '__main__':
     main()

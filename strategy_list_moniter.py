@@ -71,7 +71,7 @@ class StrategyListMonitor(object):
         for strategy in self.strategy_list:
             if self.indexes_chg[2] < 0:
                 # 中证500指数下跌
-                if self.strategy_list_chg_dict[strategy] < self.indexes_chg[2]:
+                if self.strategy_list_chg_dict[strategy] < self.indexes_chg[2]*index_ratio[2]:
                     # 策略跑输中证500指数
                     self.bull_reduce_list.append(strategy)
 
@@ -93,13 +93,13 @@ class StrategyListMonitor(object):
             bull_reduce_weight += self.strategy_weight_dict[strategy]
         ic_reduce_weight = 0.0
         for strategy in self.ic_reduce_list:
-            ic_reduce_weight += self.strategy_weight_dict[strategy] / 3
+            ic_reduce_weight += self.strategy_weight_dict[strategy]
         if_reduce_weight = 0.0
         for strategy in self.if_reduce_list:
-            if_reduce_weight += self.strategy_weight_dict[strategy] / 3
+            if_reduce_weight += self.strategy_weight_dict[strategy]
         ih_reduce_weight = 0.0
         for strategy in self.ih_reduce_list:
-            ih_reduce_weight += self.strategy_weight_dict[strategy] / 3
+            ih_reduce_weight += self.strategy_weight_dict[strategy]
         result['bull_reduce_weight'] = bull_reduce_weight
         result['ic_reduce_weight'] = ic_reduce_weight
         result['ih_reduce_weight'] = ih_reduce_weight
