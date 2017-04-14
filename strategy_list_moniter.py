@@ -7,7 +7,7 @@ import pandas as pd
 from WindPy import w
 
 indexes = ['000016.SH', '000300.SH', '000905.SH']  # 指数万得代码，分别是上证50、沪深300和中证500
-index_ratio = [0.75, 1.0, 0.7]  # IH,IF和IC对应的系数分别是0.75,1.0和0.7
+index_ratio = [0.75, 1.0, 0.9]  # IH,IF和IC对应的系数分别是0.75,1.0和0.9
 
 output_mongo_client = pymongo.MongoClient('192.168.2.181', 27017)
 output_db = output_mongo_client['fire_trade']

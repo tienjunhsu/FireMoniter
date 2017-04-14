@@ -31,11 +31,10 @@ class BasketGenerator(object):
         self.ic_df = None  # ic部分票池
         self.if_df = None  # if部分票池
         self.ih_df = None  # ih部分票池
-        self.out_strategy_list = ['600008', '601258', '600155', '603616', '300137', '600874', '300428',
-                                  '000786','002233','000507','603586','601228']  # 不在策略内的股票，需要从票池和当前持仓里面去掉，并调整权重
-        self.position_files = {u'一号产品': u'201704121号当日现货持仓.xlsx', u'华泰沙莎': u'20170412华泰莎莎现货持仓信息.xls',
-                               u'术源九州': u'20170412术源九州现货持仓信息.xls', u'自强一号': u'20170412自强持仓.xlsx',
-                               u'兴鑫': u'20170412鑫兴1号现货持仓信息.xls', u'华泰吴雪敏': u'4.12吴雪敏持仓.xls'}
+        self.out_strategy_list = []  # 不在策略内的股票，需要从票池和当前持仓里面去掉，并调整权重
+        self.position_files = {u'一号产品': u'201704131号当日现货持仓.xlsx', u'华泰沙莎': u'20170413莎莎现货持仓信息.xls',
+                               u'术源九州': u'20170413术源九州当日现货持仓.xls', u'自强一号': u'4.13自强一号持仓.XLS',
+                               u'兴鑫': u'4.13兴鑫一号持仓.XLS', u'华泰吴雪敏': u'4.13吴雪敏持仓.xls'}
         self.load_config()
 
     def load_config(self):
@@ -67,7 +66,7 @@ class BasketGenerator(object):
                     bull_df['position_num'] = 0
                     bull_df = self.approach_totalAmount(bull_amount, bull_df)
                     plan_df = bull_df
-                    #bull_df.to_excel(name + u'裸多计划持仓.xlsx', index=False)
+                    bull_df.to_excel(name + u'裸多计划持仓.xlsx', index=False)
             ic_amount = product['ic_amount']
             if ic_amount > 0:
                 if self.ic_df is not None:
@@ -78,7 +77,7 @@ class BasketGenerator(object):
                         plan_df = plan_df.append(ic_df)
                     else:
                         plan_df = ic_df
-                    #ic_df.to_excel(name + u'IC计划持仓.xlsx', index=False)
+                    ic_df.to_excel(name + u'IC计划持仓.xlsx', index=False)
             if_amount = product['if_amount']
             if if_amount > 0:
                 if self.if_df is not None:
@@ -89,7 +88,7 @@ class BasketGenerator(object):
                         plan_df = plan_df.append(if_df)
                     else:
                         plan_df = if_df
-                    #if_df.to_excel(name + u'IF计划持仓.xlsx', index=False)
+                    if_df.to_excel(name + u'IF计划持仓.xlsx', index=False)
             ih_amount = product['ih_amount']
             if ih_amount > 0:
                 if self.ih_df is not None:
@@ -100,7 +99,7 @@ class BasketGenerator(object):
                         plan_df = plan_df.append(ih_df)
                     else:
                         plan_df = ih_df
-                    #ih_df.to_excel(name + u'IH计划持仓.xlsx', index=False)
+                    ih_df.to_excel(name + u'IH计划持仓.xlsx', index=False)
             now_df = self.parse_position(product, self.position_files[name])
             if plan_df is not None:
                 plan_df = plan_df.groupby('code').agg(
@@ -296,6 +295,19 @@ class BasketGenerator(object):
             raise Exception(
                     'Unknown clientType,product is:' + product['name'] + ',clientType is:' + product['clientType'])
         df = df[~df.code.isin(self.out_strategy_list)]
+        if len(product['insist_code']) > 0:
+            insist_df = df[df.code.isin(product['insist_code'])]
+            if len(insist_df) > 0:
+                insist_df = insist_df.set_index('code')
+                df = df[~df.code.isin(product['insist_code'])]
+                insist_position = pd.Series(product['insist_num'],index=product['insist_code'],name='insist_num')
+                insist_df = insist_df.join(insist_position,how='inner')
+                insist_df.loc[:,'position_num'] = insist_df.position_num - df.insist_num
+                insist_df = insist_df[insist_df.position_num > 0]
+                if len(insist_df) > 0:
+                    insist_df = insist_df.reset_index()
+                    insist_df = insist_df[['code', 'name', 'position_num', 'position_value']]
+                    df = df.append(insist_df,ignore_index=True)
         return df
 
     def parse_ims_excel_position(self, filename):

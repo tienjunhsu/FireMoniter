@@ -79,7 +79,7 @@ def rt_pct():
     index_df = pd.DataFrame(list(index_cursor))
     index_df = index_df.set_index('wind_code')
 
-    cursor = collection.find({'date': current_trade_day}, {'_id': False})
+    cursor = collection.find({'date': current_trade_day}, {'_id': False}).sort('time_stamp')
     response_data = {}
     response_data['retCode'] = 1
     response_data['retMsg'] = 'Success'
