@@ -1,9 +1,12 @@
 #! /user/bin/env python
 # encoding:utf-8
 # 生成各产品篮子
+from __future__ import division
 import json
 
 import datetime
+
+import math
 import pandas as pd
 from pandas import ExcelWriter
 import pymongo
@@ -15,11 +18,15 @@ output_db = output_mongo_client['fire_trade']
 monitor_mongo_client = pymongo.MongoClient('192.168.2.112', 27017)
 moniter_db = monitor_mongo_client['fire_moniter']
 
+delivery_dates = ['2017-01-20', '2017-02-17', '2017-03-17', '2017-04-21', '2017-05-19', '2017-06-16', '2017-07-21',
+                  '2017-08-18', '2017-09-15', '2017-10-20', '2017-11-17', '2017-12-15']
+
 
 class BasketGenerator(object):
     def __init__(self):
         self.products = None  # 产品列表
         self.today = datetime.date.today().strftime('%Y-%m-%d')
+        self.get_last_tradeDay()  # 如果是非交易日，需要获取上一个交易日
         self.total_weight = None  # 票池合计权重
         self.output_date = None  # 策略生成日期
         self.strategy_list = None
@@ -31,10 +38,12 @@ class BasketGenerator(object):
         self.ic_df = None  # ic部分票池
         self.if_df = None  # if部分票池
         self.ih_df = None  # ih部分票池
+        self.hedge_close = {} #对冲期货上个交易日的收盘价
+        self.hedge_multiplier = {'IC':200,'IF':300,'IH':300} #合约乘数
         self.out_strategy_list = []  # 不在策略内的股票，需要从票池和当前持仓里面去掉，并调整权重
-        self.position_files = {u'一号产品': u'201704131号当日现货持仓.xlsx', u'华泰沙莎': u'20170413莎莎现货持仓信息.xls',
-                               u'术源九州': u'20170413术源九州当日现货持仓.xls', u'自强一号': u'4.13自强一号持仓.XLS',
-                               u'兴鑫': u'4.13兴鑫一号持仓.XLS', u'华泰吴雪敏': u'4.13吴雪敏持仓.xls'}
+        self.position_files = {u'一号产品': u'20170425 1号当日现货持仓.xlsx',
+                               u'术源九州': u'20170425术源九州现货持仓信息.xls01', u'自强一号': u'自强.xls01',
+                               u'兴鑫': u'兴鑫.xls', u'华泰吴雪敏': u'吴雪敏.xls01'}
         self.load_config()
 
     def load_config(self):
@@ -43,6 +52,12 @@ class BasketGenerator(object):
         with open(filename, 'r') as f:
             config = json.load(f)
         self.products = config['products']
+
+    def get_last_tradeDay(self):
+        #获取最近的一个交易日
+        trade_days = monitor_mongo_client['fire_data']['trade_day'].find({'date': {'$lte': self.today}},
+                                                                         {'_id': False}).sort('date', -1).limit(1)
+        self.today = list(trade_days)[0]['date']
 
     def start(self):
         self.get_adjust_weight()
@@ -58,6 +73,7 @@ class BasketGenerator(object):
         # 生成持仓数量
         for product in self.products:
             name = product['name']
+            plan_ic_hand = plan_if_hand = plan_ih_hand = 0 #计划IC,IF和IH的持仓手数的初始值都设置为0
             bull_amount = product['bull_amount']
             plan_df = None
             if bull_amount > 0:
@@ -70,36 +86,48 @@ class BasketGenerator(object):
             ic_amount = product['ic_amount']
             if ic_amount > 0:
                 if self.ic_df is not None:
-                    ic_df = self.ic_df
-                    ic_df['position_num'] = 0
-                    ic_df = self.approach_totalAmount(ic_amount, ic_df)
-                    if plan_df is not None:
-                        plan_df = plan_df.append(ic_df)
-                    else:
-                        plan_df = ic_df
-                    ic_df.to_excel(name + u'IC计划持仓.xlsx', index=False)
+                    ic_adj_result = self.__adjust_hedge_amount(ic_amount,'IC')
+                    ic_amount = ic_adj_result['amount']
+                    plan_ic_hand = ic_adj_result['hand']
+                    if ic_amount > 0:
+                        ic_df = self.ic_df
+                        ic_df['position_num'] = 0
+                        ic_df = self.approach_totalAmount(ic_amount, ic_df)
+                        if plan_df is not None:
+                            plan_df = plan_df.append(ic_df)
+                        else:
+                            plan_df = ic_df
+                        ic_df.to_excel(name + u'IC计划持仓'+str(plan_ic_hand)+u'手.xlsx', index=False)
             if_amount = product['if_amount']
             if if_amount > 0:
                 if self.if_df is not None:
-                    if_df = self.if_df
-                    if_df['position_num'] = 0
-                    if_df = self.approach_totalAmount(if_amount, if_df)
-                    if plan_df is not None:
-                        plan_df = plan_df.append(if_df)
-                    else:
-                        plan_df = if_df
-                    if_df.to_excel(name + u'IF计划持仓.xlsx', index=False)
+                    if_adj_result = self.__adjust_hedge_amount(if_amount,'IF')
+                    if_amount = if_adj_result['amount']
+                    plan_if_hand = if_adj_result['hand']
+                    if if_amount > 0:
+                        if_df = self.if_df
+                        if_df['position_num'] = 0
+                        if_df = self.approach_totalAmount(if_amount, if_df)
+                        if plan_df is not None:
+                            plan_df = plan_df.append(if_df)
+                        else:
+                            plan_df = if_df
+                        if_df.to_excel(name + u'IF计划持仓'+str(plan_if_hand)+u'手.xlsx', index=False)
             ih_amount = product['ih_amount']
             if ih_amount > 0:
                 if self.ih_df is not None:
-                    ih_df = self.ih_df
-                    ih_df['position_num'] = 0
-                    ih_df = self.approach_totalAmount(ih_amount, ih_df)
-                    if plan_df is not None:
-                        plan_df = plan_df.append(ih_df)
-                    else:
-                        plan_df = ih_df
-                    ih_df.to_excel(name + u'IH计划持仓.xlsx', index=False)
+                    ih_adj_result = self.__adjust_hedge_amount(ih_amount,'IH')
+                    ih_amount = ih_adj_result['amount']
+                    plan_ih_hand = ih_adj_result['hand']
+                    if ih_amount > 0:
+                        ih_df = self.ih_df
+                        ih_df['position_num'] = 0
+                        ih_df = self.approach_totalAmount(ih_amount, ih_df)
+                        if plan_df is not None:
+                            plan_df = plan_df.append(ih_df)
+                        else:
+                            plan_df = ih_df
+                        ih_df.to_excel(name + u'IH计划持仓'+str(plan_ih_hand)+u'手.xlsx', index=False)
             now_df = self.parse_position(product, self.position_files[name])
             if plan_df is not None:
                 plan_df = plan_df.groupby('code').agg(
@@ -113,11 +141,46 @@ class BasketGenerator(object):
                 plan_df = plan_df.fillna(0)
                 plan_df.loc[:, 'position_num'] = plan_df['position_num'] - plan_df['old_position_num']
                 plan_df = plan_df.reset_index()
-                #plan_df.to_excel(name + u'加减仓.xlsx', index=False)
+                # plan_df.to_excel(name + u'加减仓.xlsx', index=False)
             else:
                 plan_df = now_df[['code', 'name', 'position_num']]
-                plan_df[:,'position_num'] = -plan_df.position_num
+                plan_df[:, 'position_num'] = -plan_df.position_num
             self.format_basket(name, product['clientType'], plan_df)
+
+    def __adjust_hedge_amount(self,amount,type):
+        #调整对冲端资金额度，使得是整手的期货合约
+        #type 必须是'IC','IF','IH'中的一个
+        #返回结果为{'hand':hand,'amount':amount}
+        #其中的hand为期货手数,amount为调整后的期货端金额
+        print('...............')
+        print(amount)
+        print(type)
+        if type == 'IC':
+            total_weight = self.ic_df.weight.sum()
+            f_close = self.hedge_close['IC']
+            f_multiplier = self.hedge_multiplier['IC']
+        elif type == 'IF':
+            total_weight = self.if_df.weight.sum()
+            f_close = self.hedge_close['IF']
+            f_multiplier = self.hedge_multiplier['IF']
+        elif type == 'IH':
+            total_weight = self.ih_df.weight.sum()
+            f_close = self.hedge_close['IH']
+            f_multiplier = self.hedge_multiplier['IH']
+        else:
+            raise Exception('Unknown hedge type:'+type)
+        print(f_close)
+        print(f_multiplier)
+        hands = amount*total_weight/(f_close*f_multiplier)
+        print(hands)
+        if hands - math.floor(hands) >= 0.7:
+            hands = math.ceil(hands)
+        else:
+            hands = math.floor(hands)
+        result = {}
+        result['hand'] = hands
+        result['amount'] = hands*f_close*f_multiplier/total_weight
+        return result
 
     def format_basket(self, product, clientType, df):
         # 将票池转化为对应的格式
@@ -130,11 +193,11 @@ class BasketGenerator(object):
             df = df[['code', 'market_type', 'position_num']]
             df.columns = [u'合约代码', u'市场', u'数量/权重']
             reduce_df = df[df[u'数量/权重'] < 0]
-            reduce_df.loc[:,u'数量/权重'] = - reduce_df[u'数量/权重']
-            df = df[df[u'数量/权重'] >=0]
+            reduce_df.loc[:, u'数量/权重'] = - reduce_df[u'数量/权重']
+            df = df[df[u'数量/权重'] >= 0]
             writer = ExcelWriter(product + u'加减仓.xlsx')
-            df.to_excel(writer,u'加仓篮子', index=False)
-            reduce_df.to_excel(writer,u'减仓篮子',index=False)
+            df.to_excel(writer, u'加仓篮子', index=False)
+            reduce_df.to_excel(writer, u'减仓篮子', index=False)
             writer.save()
         elif clientType == 'pb':
             df01 = df[df['code'].str.startswith('60')]
@@ -145,11 +208,11 @@ class BasketGenerator(object):
             df = df[['code', 'name', 'market_type', 'position_num']]
             df.columns = [u'证券代码', u'证券名称', u'交易市场', u'数量/权重']
             reduce_df = df[df[u'数量/权重'] < 0]
-            reduce_df.loc[:,u'数量/权重'] = - reduce_df[u'数量/权重']
-            df = df[df[u'数量/权重'] >=0]
+            reduce_df.loc[:, u'数量/权重'] = - reduce_df[u'数量/权重']
+            df = df[df[u'数量/权重'] >= 0]
             writer = ExcelWriter(product + u'加减仓.xlsx')
-            df.to_excel(writer,u'加仓篮子', index=False)
-            reduce_df.to_excel(writer,u'减仓篮子',index=False)
+            df.to_excel(writer, u'加仓篮子', index=False)
+            reduce_df.to_excel(writer, u'减仓篮子', index=False)
             writer.save()
         else:
             df['d_weight'] = 1
@@ -157,16 +220,19 @@ class BasketGenerator(object):
             df = df[['code', 'name', 'position_num', 'd_weight', 'd_dr']]
             df.columns = [u'证券代码', u'证券名称', u'目标数量', u'目标权重', u'方向']
             reduce_df = df[df[u'目标数量'] < 0]
-            reduce_df.loc[:,u'目标数量'] = - reduce_df[u'目标数量']
-            df = df[df[u'目标数量'] >=0]
+            reduce_df.loc[:, u'目标数量'] = - reduce_df[u'目标数量']
+            df = df[df[u'目标数量'] >= 0]
             writer = ExcelWriter(product + u'加减仓.xlsx')
-            df.to_excel(writer,u'加仓篮子', index=False)
-            reduce_df.to_excel(writer,u'减仓篮子',index=False)
+            df.to_excel(writer, u'加仓篮子', index=False)
+            reduce_df.to_excel(writer, u'减仓篮子', index=False)
             writer.save()
 
     def fetch_close_price(self):
         # 获取股票池的名字和当天收盘价
         w.start()
+        index_secs = self.__get_future_contracts()
+        index_close = w.wsd(index_secs,'close',self.today, self.today,'Fill=Previous').Data[0]
+        self.hedge_close = dict(zip(['IC','IF','IH'],index_close))
         if self.bull_df is not None:
             self.bull_df['close'] = \
                 w.wsd(','.join(self.bull_df['wind_code'].tolist()), "close", self.today, self.today,
@@ -200,6 +266,19 @@ class BasketGenerator(object):
                       "Fill=Previous").Data[
                     0]
         w.stop()
+
+    def __get_future_contracts(self):
+        #获取期货当月合约
+        today = datetime.date.today().strftime('%Y-%m-%d')
+        month = int(today[5:7])
+        year = int(today[2:4])
+        if today > delivery_dates[month -1]:
+            month += 1
+        if month > 12:
+            month %= 12
+            year += 1
+        contract =  str(year) + '%02d'% month
+        return ','.join([prefix + contract+'.CFE' for prefix in ['IC','IF','IH']])
 
     def get_adjust_weight(self):
         # 获取权重调整
@@ -300,14 +379,14 @@ class BasketGenerator(object):
             if len(insist_df) > 0:
                 insist_df = insist_df.set_index('code')
                 df = df[~df.code.isin(product['insist_code'])]
-                insist_position = pd.Series(product['insist_num'],index=product['insist_code'],name='insist_num')
+                insist_position = pd.Series(product['insist_num'], index=pd.Index(product['insist_code'],name='code'), name='insist_num')
                 insist_df = insist_df.join(insist_position,how='inner')
-                insist_df.loc[:,'position_num'] = insist_df.position_num - df.insist_num
+                insist_df.loc[:, 'position_num'] = insist_df.position_num - insist_df.insist_num
                 insist_df = insist_df[insist_df.position_num > 0]
                 if len(insist_df) > 0:
                     insist_df = insist_df.reset_index()
                     insist_df = insist_df[['code', 'name', 'position_num', 'position_value']]
-                    df = df.append(insist_df,ignore_index=True)
+                    df = df.append(insist_df, ignore_index=True)
         return df
 
     def parse_ims_excel_position(self, filename):

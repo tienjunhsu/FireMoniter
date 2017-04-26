@@ -1,9 +1,11 @@
 #! /user/bin/env python
 # encoding:utf-8
 # 子策略监控
+from __future__ import division
 import datetime
 import pymongo
 import pandas as pd
+import numpy as np
 from WindPy import w
 
 indexes = ['000016.SH', '000300.SH', '000905.SH']  # 指数万得代码，分别是上证50、沪深300和中证500
@@ -30,6 +32,7 @@ class StrategyListMonitor(object):
         self.ih_reduce_list = []  # 对冲IH需要减仓的策略
         self.indexes_chg = None
         self.today = datetime.date.today().strftime('%Y-%m-%d')
+        self.last_trade_day = self.get_last_tradeDay() #上一个交易日
 
         self.fetch_strategy_list()
 
@@ -40,16 +43,23 @@ class StrategyListMonitor(object):
         print(strategy_list)
         self.strategy_list = strategy_list.split(',')
 
+    def get_last_tradeDay(self):
+        #获取上一个交易日
+        trade_days = monitor_mongo_client['fire_data']['trade_day'].find({'date': {'$lt': self.today}},
+                                                                         {'_id': False}).sort('date', -1).limit(1)
+        return list(trade_days)[0]['date']
+
     def start(self):
         w.start()
         func = None
         now = datetime.datetime.now().strftime('%H:%M')
         if now > '15:30':
-            func = 'self.fetch_chg_from_wind_wsd'
+            func = 'self.fetch_chg_from_wind_wsd' #其实用不着eval函数，可以直接用func=self.fetch_chg_from_wind_wsd
         else:
             func = 'self.fetch_chg_from_wind_wsq'
         func = eval(func)
-        self.indexes_chg = func(','.join(indexes))  # 计算(获取指数的涨跌幅)
+        #self.indexes_chg = func(','.join(indexes))  # 计算(获取指数的涨跌幅)
+        self.fetch_index_vwap_chg() #用均价计算指数涨跌
 
         for strategy in self.strategy_list:
             df = self.fetch_startegy_stock(strategy)
@@ -122,15 +132,39 @@ class StrategyListMonitor(object):
         df = pd.DataFrame(list(cursor))
         return df
 
+    def fetch_index_vwap_chg(self):
+        #根据指数的均价计算指数的涨跌幅
+        self.indexes_chg = []
+        for sec in indexes:
+            last_prices = w.wsi(sec, "close", self.last_trade_day + " 09:00:00",self.last_trade_day+ " 15:00:00", "").Data[0]
+            last_prices = np.mean(last_prices)
+            today_prices = w.wsi(sec, "close", self.today + " 09:00:00",self.today+ " 15:00:00", "").Data[0]
+            today_prices = np.mean(today_prices)
+            chg = (today_prices - last_prices)/last_prices
+            print(sec)
+            print(chg)
+            self.indexes_chg.append(chg)
+
+
     def fetch_chg_from_wind_wsd(self, secs):
         # 从万得接口获取涨跌幅数据,通过日期函数获取，这个得到每天15：30后才能获取当前的数据
-        r = w.wsd(secs, "pct_chg", self.today, self.today, "")
-        data = r.Data[0]
-        return data
+        last_vwap = np.array(self.fetch_last_vwap(secs))
+        r = w.wsd(secs, "vwap", self.today, self.today, "")
+        data = np.array(r.Data[0])
+        data =(data-last_vwap)/last_vwap
+        return data.tolist()
 
     def fetch_chg_from_wind_wsq(self, secs):
         # 从万得接口获取涨跌幅数据,通过实时行情获取数据快照数据，带15:30之前获取,后面数据就会不准确
-        r = w.wsq(secs, "rt_pct_chg")
+        last_vwap = np.array(self.fetch_last_vwap(secs))
+        r = w.wsq(secs, 'rt_vwap')
+        data = np.array(r.Data[0])
+        data =(data-last_vwap)/last_vwap
+        return data.tolist()
+
+    def fetch_last_vwap(self,secs):
+        #获取上一交易日的均价
+        r = w.wsd(secs, "vwap", self.last_trade_day, self.last_trade_day, "Fill=Previous")
         data = r.Data[0]
         return data
 

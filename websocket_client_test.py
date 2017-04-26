@@ -23,6 +23,7 @@ def on_open(ws):
         ws.close()
         print "thread terminating..."
     #thread.start_new_thread(run, ())
+    ws.send('list_15_0')
 
 
 if __name__ == "__main__":

@@ -12,14 +12,19 @@ import redis
 import requests
 from WindPy import w
 
+output_mongo_client = pymongo.MongoClient('192.168.2.181', 27017)
+output_db = output_mongo_client['fire_trade']
+
 mongo_client = pymongo.MongoClient('192.168.2.112', 27017)
 collection = mongo_client['fire_moniter']['daily_moniter']
+#collection = mongo_client['fire_moniter']['daily_moniter_test'] #for test
 strategies = ['sz50', 'hs300', 'zz500', 'strategy']
 # strategies = ['sz50', 'hs300', 'zz500']
 strategy_names = [u'上证50', u'沪深300', u'中证500', u'策略']
 index_secs = ['000016.SH', '000300.SH', '000905.SH']
 
 r = redis.Redis(host='192.168.2.112', port=6379, db=0)
+#r = redis.Redis(host='192.168.2.112', port=6379, db=1) #db1 for test
 
 live = True  # 脚本是否需要持续运行
 
@@ -28,6 +33,9 @@ delivery_dates = ['2017-01-20', '2017-02-17', '2017-03-17', '2017-04-21', '2017-
 prefix = ['IH', 'IF', 'IC']
 spread_contracts = None  # 基差合约
 spread_dict = None  # 基差合约字典
+
+output_date = None #策略生成时间
+strategy_list = None #子策略列表
 
 
 def gen_contract():
@@ -65,17 +73,29 @@ class there_global(object):
         self.ih_spread = None  # 上证基差(和当月合约比较)
         self.if_spread = None
         self.ic_spread = None
+        self.gte200 = None #市值200亿以上的股票
 
     def get(self):
-        return {'time_stamp': self.time_stamp, 'sz50': self.sz50, 'hs300': self.hs300, 'zz500': self.zz500,
+        d_dict =  {'time_stamp': self.time_stamp, 'sz50': self.sz50, 'hs300': self.hs300, 'zz500': self.zz500,
                 'strategy': self.strategy, 'ih_spread': self.ih_spread, 'if_spread': self.if_spread,
-                'ic_spread': self.ic_spread}
+                'ic_spread': self.ic_spread,'gte200':self.gte200}
+        d_dict.update({strategy_name:self.__dict__[strategy_name] for strategy_name in strategy_list})
+        print(self.gte200)
+        return d_dict
+
+    def getitem(self,key):
+        return self.__dict__[key]
+
+    def setitem(self,key,value):
+        self.__dict__[key] = value
 
 
 class var(object):
     def __init__(self):
         self.pool_df = None  # 策略生成策略df
         self.secs = None
+        self.sub_df_dict = {} #用于存储生成子策略的df
+        self.gte200_df = None #市值200亿以上的df
 
 
 now_tick = there_global()
@@ -100,35 +120,41 @@ def mWSQCallback(indata, *args, **kwargs):
     now_tick.zz500 = g_var.pool_df['rt_pct_chg'].loc['000905.SH']
     t_df = g_var.pool_df[~g_var.pool_df.index.isin(index_secs)]
     now_tick.strategy = round((t_df['rt_pct_chg'] * t_df['weight']).sum(), 4)
+    for strategy in strategy_list:
+        g_var.sub_df_dict[strategy]['rt_pct_chg'].update(ss)
+        v= round((g_var.sub_df_dict[strategy]['rt_pct_chg'] * g_var.sub_df_dict[strategy]['weight']).sum(), 4)
+        setattr(now_tick,strategy,v)
+    g_var.gte200_df.update(ss)
+    now_tick.gte200 = round((g_var.gte200_df['rt_pct_chg'] * g_var.gte200_df['weight']).sum(), 4)
     r.mset(now_tick.get())
     #print(d_time)
 
 
 def mSpreadCallback(indata, *args, **kwargs):
-    print(getattr(now_tick, 'if_spread'))
+    #print(getattr(now_tick, 'if_spread'))
     s_codes = indata.Codes
     s_data = indata.Data[0]
     for i in range(len(s_data)):
-        setattr(now_tick, spread_dict[s_codes[i]], -s_data[i])
+        setattr(now_tick, spread_dict[s_codes[i]], s_data[i])
 
 
 def insert_to_db(data):
     # 将数据存入数据库
     d_dict = {'date': data.date, 'time_stamp': data.time_stamp, 'str_time': data.str_time, 'sz50': data.sz50,
               'hs300': data.hs300, 'zz500': data.zz500, 'strategy': data.strategy, 'ih_spread': data.ih_spread,
-              'if_spread': data.if_spread, 'ic_spread': data.ic_spread}
+              'if_spread': data.if_spread, 'ic_spread': data.ic_spread,'gte200':data.gte200}
+    d_dict.update({strategy_name:data.getitem(strategy_name) for strategy_name in strategy_list})
     collection.insert_one(d_dict)
 
 
 def fetch_stockpool():
-    mongo = pymongo.MongoClient('192.168.2.181', 27017)
-    db = mongo['fire_trade']
-    date = db['strategy_output_date'].find().sort('date', -1).limit(1)[0]['date']
-    cursor = db['strategy_output01'].find({'date': date}, {'_id': 0, 'code': 1, 'weight': 1})
+    global output_date
+    output_date = output_db['strategy_output_date'].find().sort('date', -1).limit(1)[0]['date']
+    cursor = output_db['strategy_output01'].find({'date': output_date}, {'_id': 0, 'code': 1, 'weight': 1})
     df = pd.DataFrame(list(cursor))
     if len(df.code[0]) > 6:
         df.code = df.code.str.slice(2, 8)
-    high_risk_ticks = requests.get('http://192.168.2.112:8000/risk/highriskticks/' + date + '/').text
+    high_risk_ticks = requests.get('http://192.168.2.112:8000/risk/highriskticks/' + output_date + '/').text
     high_risk_ticks = high_risk_ticks.split(',')
     df = df[~df['code'].isin(high_risk_ticks)]
     df.loc[:, 'weight'] = df['weight'] / df['weight'].sum()
@@ -139,9 +165,52 @@ def fetch_stockpool():
     g_var.pool_df = g_var.pool_df.append(df)
     g_var.pool_df = g_var.pool_df.append(pd.DataFrame({'code': index_secs, 'weight': [0.0, 0.0, 0.0]}),
                                          ignore_index=True)
-    g_var.secs = ','.join(g_var.pool_df['code'].tolist())
+    g_var.secs = g_var.pool_df['code'].tolist() #先设置为列表，然后用set来去重，再进行组合成字符串来进行订阅
     g_var.pool_df['rt_pct_chg'] = 0.0
     g_var.pool_df = g_var.pool_df.set_index('code')
+    fetch_strategy_list()
+    g_var.secs = set(g_var.secs) #利用set来去除重复的
+    g_var.secs = ','.join(g_var.secs)
+
+
+def fetch_strategy_list():
+    #获取子策略列表
+    cursor = output_db['strategy_list'].find({'date': output_date}, {'_id': 0, 'strategy_list': 1})
+    global strategy_list
+    strategy_list = list(cursor)[0]['strategy_list']
+    strategy_list = strategy_list.split(',')
+    print(strategy_list)
+    for strategy in strategy_list:
+        fetch_sub_strategy(strategy)
+
+
+def fetch_sub_strategy(strategy_name):
+    #获取子策略
+    cursor = output_db['strategy_list_output01'].find({'date': output_date, 'strategy': strategy_name},
+                                                          {'_id': 0, 'code': 1, 'weight': 1, 'wind_code': 1})
+    df = pd.DataFrame(list(cursor))
+    df.loc[:,'code'] = df.wind_code
+    df.loc[:,'weight'] = df.weight/df.weight.sum() #监控单独的每个子策略，子策略的权重需要归一化
+    df = df[['code','weight']]
+    df['rt_pct_chg'] = 0.0
+    g_var.secs += df.code.tolist() #把所有的股票代码放进订阅列表里面去
+    df = df.set_index('code')
+    g_var.sub_df_dict[strategy_name] = df #子策略的DataFrame
+    setattr(now_tick,strategy_name,None) #初始化tick数据值，每个子策略的初始值都设置为None
+
+
+def fetch_gte200_stock():
+    #市值200亿以上的股票
+    today = datetime.date.today().strftime('%Y-%m-%d')
+    last_trade_day = mongo_client['fire_data']['trade_day'].find({'date': {'$lt': today}}, {'_id': False}).sort('date', -1).limit(1)
+    last_trade_day  = list(last_trade_day)[0]['date']
+    t_df = g_var.pool_df[:-3] #去除指数
+    t_df['float_a_shares'] = w.wsd(','.join(t_df.index.tolist()),"float_a_shares", last_trade_day, last_trade_day, "unit=1;currencyType=;Fill=Previous").Data[0]
+    t_df['close'] = w.wsd(','.join(t_df.index.tolist()),"close", last_trade_day, last_trade_day, "Fill=Previous").Data[0]
+    t_df['mkt'] = t_df.close * t_df.float_a_shares
+    t_df = t_df[t_df.mkt >=20000000000]
+    t_df.loc[:,'weight'] = t_df.weight/t_df.weight.sum()
+    g_var.gte200_df = t_df[['weight','rt_pct_chg']]
 
 
 def tick():
@@ -167,6 +236,7 @@ def start_w():
     fetch_stockpool()
     w.start()
     print(len(g_var.pool_df))
+    fetch_gte200_stock()
     w.wsq(','.join(spread_contracts), "rt_spread", func=mSpreadCallback)
     w.wsq(g_var.secs, "rt_pct_chg", func=mWSQCallback)
     # w.wsq("RM709.CZC", "rt_last", func=mWSQCallback)

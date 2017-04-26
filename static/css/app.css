@@ -1,1 +1,68 @@
 /* Write your styles */
+.tpl-skiner {
+  transition: all 0.4s ease-in-out;
+  bottom:0;
+  top: 0;
+  position: fixed;
+  z-index: 10000;
+  right: -260px;
+  /*overflow-y: scroll*/;
+}
+.tpl-skiner.active {
+  right: 0px;
+}
+.tpl-skiner-content {
+  background: rgba(0, 0, 0, 0.7);
+  width: 260px;
+  padding: 15px;
+  border-radius: 4px 0 0 4px;
+  overflow: scroll;
+}
+.fc-content .am-icon-close {
+  position: absolute;
+  right: 0;
+  top: 0px;
+}
+.tpl-skiner-toggle {
+  position: absolute;
+  top: 5px;
+  left: -40px;
+  width: 40px;
+  color: #969a9b;
+  font-size: 20px;
+  height: 40px;
+  line-height: 40px;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.7);
+  cursor: pointer;
+  border-top-left-radius: 4px;
+  border-bottom-left-radius: 4px;
+}
+.tpl-skiner-content-title {
+  margin: 0;
+  margin-bottom: 4px;
+  padding-bottom: 4px;
+  font-size: 16px;
+  text-transform: uppercase;
+  color: #fff;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+}
+.tpl-skiner-content-bar {
+  padding-top: 10px;
+}
+.tpl-skiner-content-bar .skiner-color {
+  transition: all 0.4s ease-in-out;
+  float: left;
+  width: 25px;
+  height: 25px;
+  margin-right: 10px;
+  cursor: pointer;
+}
+.tpl-skiner-content-bar .skiner-white {
+  background: #fff;
+  border: 2px solid #eee;
+}
+.tpl-skiner-content-bar .skiner-black {
+  background: #000;
+  border: 2px solid #222;
+}
