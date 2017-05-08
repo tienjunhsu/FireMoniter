@@ -1,54 +1,54 @@
 {
     "products": [
       {
-            "name": "一号产品",
-            "clientType": "ims",
-            "bull_amount": 5460000.0,
-            "ic_amount": 7650000.0,
-            "if_amount": 7650000.0,
-            "ih_amount": 7650000.0,
-            "insist_code":["600155","000786","601258","300428","600874"],
-            "insist_num":[13800,13700,54700,9800,20000]
-        },
-       {
             "name": "兴鑫",
             "clientType": "pb",
-            "bull_amount": 3500000.0,
-            "ic_amount": 11500000.0,
-            "if_amount": 11500000.0,
-            "ih_amount": 11500000.0,
-            "insist_code":["600155","000786","601258","300428","600874","300642"],
-            "insist_num":[15500,14400,62800,8300,12000,500]
-        },
-      {
-            "name": "术源九州",
-            "clientType": "pb",
-            "bull_amount": 12800000.0,
-            "ic_amount": 0.0,
-            "if_amount": 0.0,
-            "ih_amount": 0.0,
-            "insist_code":["600155","000786","601258","300428","600874"],
-            "insist_num":[0,0,86800,12600,0]
+            "bull_amount": 4000000.0,
+            "ic_amount": 12100000.0,
+            "if_amount": 12100000.0,
+            "ih_amount": 12100000.0,
+            "insist_code":[],
+            "insist_num":[]
         },
       {
             "name": "华泰吴雪敏",
-            "clientType": "pb",
-            "bull_amount": 22000000.0,
+            "clientType": "tdx",
+            "bull_amount": 24000000.0,
             "ic_amount": 0.0,
             "if_amount": 0.0,
             "ih_amount": 0.0,
-            "insist_code":["600155","000786","601258","300428","600874"],
-            "insist_num":[18700,17300,79400,12900,14400]
+            "insist_code":[],
+            "insist_num":[]
         },
       {
             "name": "自强一号",
             "clientType": "pb",
-            "bull_amount": 6200000.0,
+            "bull_amount": 6700000.0,
             "ic_amount": 0.0,
             "if_amount": 0.0,
             "ih_amount": 0.0,
-            "insist_code":["600155","000786","601258","300428","600874","300641"],
-            "insist_num":[4300,3900,20000,3000,5000,500]
+            "insist_code":["300641"],
+            "insist_num":[500]
+        },
+      {
+            "name": "一号产品",
+            "clientType": "ims",
+            "bull_amount": 8000000.0,
+            "ic_amount": 7650000.0,
+            "if_amount": 7650000.0,
+            "ih_amount": 7650000.0,
+            "insist_code":["603501"],
+            "insist_num":[1000]
+        },
+      {
+            "name": "术源九州",
+            "clientType": "pb",
+            "bull_amount": 13500000.0,
+            "ic_amount": 0.0,
+            "if_amount": 0.0,
+            "ih_amount": 0.0,
+            "insist_code":[],
+            "insist_num":[]
         }
     ]
 }

@@ -4,12 +4,14 @@
 from __future__ import  division
 import math
 import pandas as pd
+import pymongo
 import requests
 from pandas import ExcelWriter
 from WindPy import w
 
 basket_unit = 1500000.0 #一个交易篮子150万
-
+mongo_client = pymongo.MongoClient('192.168.2.181', 27017)
+db = mongo_client['fire_trade']
 
 def parse_xt_excel_position(filename):
     df = pd.read_excel(filename, converters={u'证券代码': str})
@@ -31,6 +33,16 @@ def parse_hs_excel_position(filename):
     df = df[df.position_num > 0]
     return df
 
+
+def parse_ss_csv_position(filename):
+    #莎莎（同花顺?）导出的持仓
+    df = pd.read_csv(filename,encoding='gbk',sep='\t', converters={u'证券代码': str})
+    df = df[[u'证券代码', u'证券名称', u'股票余额', u'市值']]
+    df.columns = ['code', 'name', 'position_num', 'position_value']
+    df = df[df.code.str.startswith('30') | df.code.str.startswith('60') | df.code.str.startswith('00')]
+    df = df[df.position_num > 0]
+    return df
+
 def approach_totalAmount(totalAmount, df):
     # 获取计划持仓股数，逼近总金额
     # totalAmount是计划持仓的总金额，df是带有收盘价的策略生成的票池DataFrame
@@ -47,7 +59,8 @@ def approach_totalAmount(totalAmount, df):
 
 
 def main():
-    filename = u'F:/firecapital/数据/20170423_outputlist_selectedlist_4_23_20_53_32.xlsx'
+    #中山14000万,莎莎500万
+    filename = u'F:/firecapital/数据/realoutput20170508/lists_outputlist_selectedlist_5_8_5_37_35.xlsx'
     df = pd.read_excel(filename,converters = {'code':str})
     df = df[['period','code','weight']]
     if len(df.code[0]) > 6:
@@ -58,12 +71,12 @@ def main():
     df['wind_code'] = df.code +'.SH'
     df = df.append(df01)
     print(len(df))
-    #risk_url = 'http://180.168.45.126:60618/risk/highriskticks/2017-04-23/'
-    risk_url = 'http://192.168.2.112：8000/risk/highriskticks/2017-04-23/'
+    #risk_url = 'http://180.168.45.126:60618/risk/highriskticks/2017-05-01/'
+    risk_url = 'http://192.168.2.112：8000/risk/highriskticks/2017-05-07/'
     high_risk_list = requests.get(risk_url).text.split(',')
     df = df[~df.code.isin(high_risk_list)]
     w.start()
-    date = "2017-04-21"
+    date = "2017-05-05"
     df['float_a_shares'] = w.wsd(','.join(df.wind_code.tolist()),"float_a_shares", date, date, "unit=1;currencyType=;Fill=Previous").Data[0]
     df['close'] = w.wsd(','.join(df.wind_code.tolist()),"close", date, date, "Fill=Previous").Data[0]
     df['mkt'] = df.close * df.float_a_shares
@@ -74,11 +87,13 @@ def main():
     #df['name'] =  w.wsd(','.join(df.wind_code.tolist()),"sec_name", date, date, "Fill=Previous").Data[0]
     #df.to_excel(u'gte200.xlsx',index=False)
     df['position_num'] = 0
-    plan_df = approach_totalAmount(5400000,df)
-    #format_2_pb(plan_df)
-    #plan_df.to_excel(u'莎莎计划持仓.xlsx',index=False)
-    #now_df = parse_xt_excel_position(u'20170424术源中山现货持仓信息.xls')
-    now_df = parse_hs_excel_position(u'20170424莎莎现货持仓信息.xls')
+    #plan_df = approach_totalAmount(14000000,df)
+    plan_df = approach_totalAmount(5000000,df)
+    plan_df.to_excel(u'莎莎计划持仓.xlsx',index=False)
+    #plan_df.to_excel(u'中山计划持仓.xlsx',index=False)
+    #now_df = parse_xt_excel_position(u'0505中山持仓统计.xls')
+    #now_df = parse_hs_excel_position(u'0505莎莎持仓统计.xls')
+    now_df = parse_ss_csv_position(u'0505莎莎持仓统计.xls')
     now_df = now_df[['code', 'position_num']]
     now_df.columns = ['code', 'old_position_num']
     plan_df = plan_df.set_index('code')
@@ -87,8 +102,6 @@ def main():
     plan_df = plan_df.fillna(0)
     plan_df.loc[:, 'position_num'] = plan_df['position_num'] - plan_df['old_position_num']
     plan_df = plan_df.reset_index()
-    print(plan_df[plan_df.code=='000858'])
-    print(plan_df[plan_df.code.duplicated()])
     #plan_df.to_excel('kkkkkk.xlsx',index=False)
     plan_df01 = plan_df[~plan_df.code.str.startswith('60')]
     plan_df = plan_df[plan_df.code.str.startswith('60')]
@@ -147,18 +160,25 @@ def save_to_excel(filename, add_df, reduce_df, columns, header):
     writer = ExcelWriter(filename)
     add_df.to_excel(writer, u'加仓汇总', columns=columns, header=header, index=False)
     reduce_df.to_excel(writer, u'减仓汇总', columns=columns, header=header, index=False)
+    n_columns = ','.join(columns)
+    n_columns = n_columns.replace('position_num','p_position_num')
+    n_columns = n_columns.split(',')
     add_df,add_basket_num = calculate_basket_num(add_df)
     if add_basket_num > 1:
-        for i in range(1,add_basket_num):
-            sheet_name = u'加仓第'+str(i)+u'蓝'
-            add_df.to_excel(writer, sheet_name,columns=columns, header=header, index=False)
-    add_df.to_excel(writer, u'加仓第'+str(add_basket_num)+u'蓝', columns=columns, header=header, index=False)
+        if add_basket_num > 2:
+            sheet_name = u'加仓第1-'+str(add_basket_num - 1)+u'篮'
+        else:
+            sheet_name = u'加仓第'+str(add_basket_num - 1)+u'篮'
+        add_df.to_excel(writer, sheet_name,columns=n_columns, header=header, index=False)
+    add_df.to_excel(writer, u'加仓第'+str(add_basket_num)+u'篮', columns=columns, header=header, index=False)
     reduce_df,reduce_basket_num = calculate_basket_num(reduce_df)
     if reduce_basket_num > 1:
-        for i in range(1,reduce_basket_num):
-            sheet_name = u'减仓第'+str(i)+u'蓝'
-            reduce_df.to_excel(writer, sheet_name,columns = columns,header=header, index=False)
-    reduce_df.to_excel(writer, u'减仓第'+str(reduce_basket_num)+u'蓝', columns=columns, header=header, index=False)
+        if reduce_basket_num > 2:
+            sheet_name = u'减仓第1-'+str(reduce_basket_num - 1)+u'篮'
+        else:
+            sheet_name = u'减仓第'+str(reduce_basket_num - 1)+u'篮'
+        reduce_df.to_excel(writer, sheet_name,columns = n_columns,header=header, index=False)
+    reduce_df.to_excel(writer, u'减仓第'+str(reduce_basket_num)+u'篮', columns=columns, header=header, index=False)
     writer.save()
 
 
@@ -175,8 +195,24 @@ def format_2_xt(df):
     save_to_excel(filename, df, reduce_df, columns, header)
 
 def check_diff():
-    pass
+    old = u'市值200亿以上.xlsx'
+    new = u'200亿市值以上.xlsx'
+    df = pd.read_excel(new,converters={'code':str})
+    last_df = pd.read_excel(old,converters={'code':str})
+    df = df[['code', 'weight']]
+    df = df.set_index('code')
+    df.columns = ['n_weight']
+    last_df = last_df[['code', 'weight']]
+    last_df = last_df.set_index('code')
+    last_df.columns = ['o_weight']
+    df = df.join(last_df, how='outer')
+    df = df.fillna(0.0)
+    weight_changed = df['n_weight'] - df['o_weight']
+    weight_changed = weight_changed[weight_changed > 0].sum()
+    print(weight_changed)
 
 
 if __name__ == '__main__':
     main()
+    #check_diff()
+    #parse_ss_csv_position(u'0505莎莎持仓统计.xls')

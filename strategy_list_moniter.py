@@ -145,7 +145,6 @@ class StrategyListMonitor(object):
             print(chg)
             self.indexes_chg.append(chg)
 
-
     def fetch_chg_from_wind_wsd(self, secs):
         # 从万得接口获取涨跌幅数据,通过日期函数获取，这个得到每天15：30后才能获取当前的数据
         last_vwap = np.array(self.fetch_last_vwap(secs))

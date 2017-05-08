@@ -13,17 +13,17 @@ def parse_xt_excel_position(filename):
 
 
 def main():
-    df = parse_xt_excel_position(u'莎莎加减仓.xlsx')
-    df01 = df[~df.code.str.startswith('60')]
-    df = df[df.code.str.startswith('60')]
-    df01['wind_code'] = df01.code +'.SZ'
-    df['wind_code'] = df.code +'.SH'
+    filename = 'maichuqu.xlsx'
+    df = pd.read_excel(filename,converters={'code':str})
+    df.loc[:,'code'] = df.code.str.slice(2,8)
+    df = df.groupby('code').agg({'position_num': sum})
+    df = df.reset_index()
+    df01 = df[df['code'].str.startswith('60')]
+    df01['market_type'] = 0
+    df = df[~df['code'].str.startswith('60')]
+    df['market_type'] = 1
     df = df.append(df01)
-    date = "2017-04-21"
-    w.start()
-    df['close'] = w.wsd(','.join(df.wind_code.tolist()),"close", date, date, "Fill=Previous").Data[0]
-    df['value'] = df.close*df.position_num
-    print(df.value.sum())
+    df.to_excel('caozuo.xlsx',index=False)
 
 if __name__ == '__main__':
     main()

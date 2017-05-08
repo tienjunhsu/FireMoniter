@@ -6,7 +6,8 @@ import pandas as pd
 
 output_mongo_client = pymongo.MongoClient('192.168.2.181', 27017)
 output_db = output_mongo_client['fire_trade']
-need_remove_codes = ['002571']
+#output_db = output_mongo_client['paper_trade']
+need_remove_codes = []#'000932','000410','600847','000659','002070','600423'
 total_weight = 0
 output_date = output_db['strategy_output_date'].find().sort('date', -1).limit(1)[0]['date']
 cursor = output_db['strategy_list'].find({'date': output_date}, {'_id': 0, 'strategy_list': 1})
@@ -19,6 +20,8 @@ for strategy in strategy_list:
     df = pd.DataFrame(list(cursor))
     df = df[~df.code.isin(need_remove_codes)]
     count += 1
+    print(strategy)
+    print(len(df))
     print(count)
     if len(df) > 0:
         total_weight += df.weight.sum()

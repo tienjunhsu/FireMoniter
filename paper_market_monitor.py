@@ -13,17 +13,17 @@ import requests
 from WindPy import w
 
 output_mongo_client = pymongo.MongoClient('192.168.2.181', 27017)
-output_db = output_mongo_client['fire_trade']
+output_db = output_mongo_client['paper_trade']
 
 mongo_client = pymongo.MongoClient('192.168.2.112', 27017)
-collection = mongo_client['fire_moniter']['daily_moniter']
+collection = mongo_client['paper_moniter']['daily_moniter']
 #collection = mongo_client['fire_moniter']['daily_moniter_test'] #for test
 strategies = ['sz50', 'hs300', 'zz500', 'strategy']
 # strategies = ['sz50', 'hs300', 'zz500']
 strategy_names = [u'上证50', u'沪深300', u'中证500', u'策略']
 index_secs = ['000016.SH', '000300.SH', '000905.SH']
 
-r = redis.Redis(host='192.168.2.112', port=6379, db=0)
+r = redis.Redis(host='192.168.2.112', port=6379, db=2)
 #r = redis.Redis(host='192.168.2.112', port=6379, db=1) #db1 for test
 
 live = True  # 脚本是否需要持续运行
@@ -80,7 +80,7 @@ class there_global(object):
     def get(self):
         d_dict =  {'time_stamp': self.time_stamp, 'sz50': self.sz50, 'hs300': self.hs300, 'zz500': self.zz500,
                 'strategy': self.strategy, 'ih_spread': self.ih_spread, 'if_spread': self.if_spread,
-                'ic_spread': self.ic_spread,'gte200':self.gte200,'signal':self.signal}
+                'ic_spread': self.ic_spread,'gte200':self.gte200}
         d_dict.update({strategy_name:self.__dict__[strategy_name] for strategy_name in strategy_list})
         #print(self.gte200)
         return d_dict
@@ -129,8 +129,8 @@ def mWSQCallback(indata, *args, **kwargs):
         setattr(now_tick,strategy,v)
     g_var.gte200_df.update(ss)
     now_tick.gte200 = round((g_var.gte200_df['rt_pct_chg'] * g_var.gte200_df['weight']).sum(), 4)
-    g_var.signal_df.update(ss)
-    now_tick.signal = round((g_var.signal_df['rt_pct_chg'] * g_var.signal_df['weight']).sum(), 4)
+    #g_var.signal_df.update(ss)
+    #now_tick.signal = round((g_var.signal_df['rt_pct_chg'] * g_var.signal_df['weight']).sum(), 4)
     r.mset(now_tick.get())
     #print(d_time)
 
@@ -147,7 +147,7 @@ def insert_to_db(data):
     # 将数据存入数据库
     d_dict = {'date': data.date, 'time_stamp': data.time_stamp, 'str_time': data.str_time, 'sz50': data.sz50,
               'hs300': data.hs300, 'zz500': data.zz500, 'strategy': data.strategy, 'ih_spread': data.ih_spread,
-              'if_spread': data.if_spread, 'ic_spread': data.ic_spread,'gte200':data.gte200,'signal':data.signal}
+              'if_spread': data.if_spread, 'ic_spread': data.ic_spread,'gte200':data.gte200}
     d_dict.update({strategy_name:data.getitem(strategy_name) for strategy_name in strategy_list})
     collection.insert_one(d_dict)
 
@@ -211,6 +211,8 @@ def fetch_gte200_stock():
     last_trade_day = mongo_client['fire_data']['trade_day'].find({'date': {'$lt': today}}, {'_id': False}).sort('date', -1).limit(1)
     last_trade_day  = list(last_trade_day)[0]['date']
     t_df = g_var.pool_df[:-3] #去除指数
+    r = w.wsd(','.join(t_df.index.tolist()),"float_a_shares", last_trade_day, last_trade_day, "unit=1;currencyType=;Fill=Previous")
+    print(r)
     t_df['float_a_shares'] = w.wsd(','.join(t_df.index.tolist()),"float_a_shares", last_trade_day, last_trade_day, "unit=1;currencyType=;Fill=Previous").Data[0]
     t_df['close'] = w.wsd(','.join(t_df.index.tolist()),"close", last_trade_day, last_trade_day, "Fill=Previous").Data[0]
     t_df['mkt'] = t_df.close * t_df.float_a_shares
@@ -266,7 +268,7 @@ def start_w():
     w.start()
     print(len(g_var.pool_df))
     fetch_gte200_stock()
-    fetch_sinagl_df()
+    #fetch_sinagl_df()
     w.wsq(','.join(spread_contracts), "rt_spread", func=mSpreadCallback)
     w.wsq(g_var.secs, "rt_pct_chg", func=mWSQCallback)
     # w.wsq("RM709.CZC", "rt_last", func=mWSQCallback)

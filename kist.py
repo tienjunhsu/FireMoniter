@@ -1,72 +1,95 @@
 #! /user/bin/env python
 #encoding:utf-8
 from __future__ import  division
-from WindPy import w
+
+import os
+
 import pymongo
 import numpy as np
 import pandas as pd
-
-indexes = ['000016.SH', '000300.SH', '000905.SH']  # 指数万得代码，分别是上证50、沪深300和中证500
-index_ratio = [0.75, 1.0, 0.9]  # IH,IF和IC对应的系数分别是0.75,1.0和0.9
+from WindPy import w
 
 output_mongo_client = pymongo.MongoClient('192.168.2.181', 27017)
 output_db = output_mongo_client['fire_trade']
-last_trade_day = '2017-04-24'
-today = '2017-04-25'
 
-def fetch_index_vwap_chg():
-    #根据指数的均价计算指数的涨跌幅
-    indexes_chg = []
-    for sec in indexes:
-        last_prices = w.wsi(sec, "close", last_trade_day + " 09:00:00",last_trade_day+ " 15:00:00", "").Data[0]
-        last_prices = np.mean(last_prices)
-        today_prices = w.wsi(sec, "close", today + " 09:00:00",today+ " 15:00:00", "").Data[0]
-        today_prices = np.mean(today_prices)
-        chg = (today_prices - last_prices)/last_prices
-        print(sec)
-        print(last_prices)
-        print(today_prices)
-        print(chg)
-        #indexes_chg.append(chg)
+monitor_mongo_client = pymongo.MongoClient('192.168.2.112', 27017)
+moniter_db = monitor_mongo_client['fire_moniter']
 
-def fetch_chg_from_wind_wsd(secs):
-    # 从万得接口获取涨跌幅数据,通过日期函数获取，这个得到每天15：30后才能获取当前的数据
-    last_vwap = np.array(fetch_last_vwap(secs))
-    #r = w.wsd(secs, "vwap", today, today, "")
-    r = w.wsd(secs, "close", today, today, "")
-    data = np.array(r.Data[0])
-    data =(data-last_vwap)/last_vwap
-    return data.tolist()
-
-def fetch_chg_from_wind_wsq(secs):
-    # 从万得接口获取涨跌幅数据,通过实时行情获取数据快照数据，带15:30之前获取,后面数据就会不准确
-    last_vwap = np.array(fetch_last_vwap(secs))
-    r = w.wsq(secs, 'rt_vwap')
-    data = np.array(r.Data[0])
-    data =(data-last_vwap)/last_vwap
-    return data.tolist()
-
-def fetch_last_vwap(secs):
-    #获取上一交易日的均价
-    #r = w.wsd(secs, "vwap", last_trade_day, last_trade_day, "Fill=Previous")
-    r = w.wsd(secs, "close", last_trade_day, last_trade_day, "Fill=Previous")
-    data = r.Data[0]
-    return data
 
 def fetch_startegy_stock(strategy):
-    cursor = output_db['strategy_list_output01'].find({'date': '2017-04-23', 'strategy': strategy},
+    cursor = output_db['strategy_list_output01'].find({'date': '2017-05-01', 'strategy': strategy},
                                                           {'_id': 0, 'code': 1, 'weight': 1, 'wind_code': 1})
     df = pd.DataFrame(list(cursor))
     return df
 
+
+def parse_ims_excel_position(filename):
+    df = pd.read_excel(filename, converters={u'证券代码': str})
+    df = df[[u'证券代码', u'证券名称', u'持仓数量', u'持仓市值']]
+    df.columns = ['code', 'name', 'position_num', 'position_value']
+    df = df[df.code.str.startswith('30') | df.code.str.startswith('60') | df.code.str.startswith('00')]
+    df = df[df.position_num > 0]
+    return df
+
+def parse_hs_excel_position(filename):
+    df = pd.read_excel(filename, converters={u'证券代码': str})
+    df = df[[u'证券代码', u'证券名称', u'持仓数量', u'持仓市值(全价)']]
+    df.columns = ['code', 'name', 'position_num', 'position_value']
+    df = df[df.code.str.startswith('30') | df.code.str.startswith('60') | df.code.str.startswith('00')]
+    df = df[df.position_num > 0]
+    return df
+
 def main():
+    f1 = u'F:/firecapital/code/FireMoniter/兴鑫.xls'
+    f2 = u'F:/firecapital/code/FireMoniter/20170503 1号当日现货持仓.xlsx'
+    df1 = parse_hs_excel_position(f1)
+    df1 = df1[['code','position_num']]
+    df1= df1.set_index('code')
+    df2 = parse_ims_excel_position(f2)
+    df2 = df2[['code','position_num','position_value']]
+    df2.columns = ['code','position_num_2','position_value']
+    df2 = df2.set_index('code')
+    df = df1.join(df2,how = 'outer')
+    df = df.fillna(0)
+    df['dif'] = df.position_num - df.position_num_2
+    df = df.reset_index()
+    df01 = df[~df.code.str.startswith('60')]
+    df = df[df.code.str.startswith('60')]
+    df01['wind_code'] = df01.code +'.SZ'
+    df['wind_code'] = df.code +'.SH'
+    df = df.append(df01)
     w.start()
-    fetch_index_vwap_chg()
-    df = fetch_startegy_stock('list_2_0')
-    secs = ','.join(df.wind_code.tolist())
-    df['pct_chg'] =  fetch_chg_from_wind_wsd(secs)
-    chg = (df['pct_chg'] * (df['weight'] / df['weight'].sum())).sum()
-    print(chg)
+    d1 = '2017-05-02'
+    d2 = '2017-05-03'
+    df['last_close'] = w.wsd(','.join(df.wind_code.tolist()),"close", d1, d1, "Fill=Previous").Data[0]
+    df['close'] = w.wsd(','.join(df.wind_code.tolist()),"close", d2, d2, "Fill=Previous").Data[0]
+    df['dv'] = df.dif*((df.close - df.last_close))
+    print(df.dv.sum())
+    df.to_excel('diff.xlsx',index=False)
+
+def test():
+    rootdir = u'C:/Users/asus/Desktop/xx3.6/兴鑫5.2单笔成交'
+    #filename = u'F:/firecapital/code/FireMoniter/'
+    for parent,dirnames,filenames in os.walk(rootdir):
+        names = filenames
+    df = None
+    for filename in names:
+        print(filename)
+        #t_df = pd.read_excel(filename,converters = {u'证券代码':str})
+        t_df = pd.read_excel(os.path.join(rootdir,filename),converters = {u'证券代码':str})
+        t_df = t_df.reset_index(drop=True)
+        t_df = t_df[[u'证券代码',u'证券名称',u'成交数量',u'成交均价',u'成交金额',u'佣金']]
+        t_df.columns = ['code','name','volume','vwap','amount','yj']
+        t_df=t_df[t_df.code.str.startswith('30')|t_df.code.str.startswith('60')|t_df.code.str.startswith('00')]
+        if df is None:
+            df = t_df
+        else:
+            df = df.append(t_df,ignore_index = True)
+    df['real_yj'] = 0.00016*df.amount
+    error = (df.real_yj - df.yj).sum()
+    print(error)
+
 
 if __name__ == '__main__':
     main()
+    #test()

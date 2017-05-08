@@ -22,6 +22,9 @@ collection_test = mongo_client['fire_moniter']['daily_moniter']
 data_db = mongo_client['fire_data']
 # collection  = None
 
+output_mongo_client = pymongo.MongoClient('192.168.2.181', 27017)
+output_db = output_mongo_client['fire_trade']
+
 # strategies = ['sz50', 'hs300', 'zz500', 'strategy']
 strategies = ['sz50', 'hs300', 'zz500']  # 固定指数，后面一个策略动态加减
 index_names = ['ih_spread', 'if_spread', 'ic_spread']
@@ -64,7 +67,7 @@ def index():
     variable['ih_last_close'] = df.loc['000016.SH'].close
     variable['if_last_close'] = df.loc['000300.SH'].close
     variable['ic_last_close'] = df.loc['000905.SH'].close
-    sub_strategy_list = ['gte200']+['list_' + str(i) + '_0' for i in range(1, 12)]
+    sub_strategy_list = get_sub_strategy_list()
     strategy_name = 'strategy'
     return render_template('index.html', variable=variable, sub_strategy_list=sub_strategy_list,
                            strategy_name=strategy_name)
@@ -97,7 +100,7 @@ def sub_strategy(strategy_name):
     variable['ih_last_close'] = df.loc['000016.SH'].close
     variable['if_last_close'] = df.loc['000300.SH'].close
     variable['ic_last_close'] = df.loc['000905.SH'].close
-    sub_strategy_list = ['gte200']+['list_' + str(i) + '_0' for i in range(1, 12)]
+    sub_strategy_list = get_sub_strategy_list()
     strategy_name = strategy_name
     return render_template('sub_strategy.html', variable=variable, sub_strategy_list=sub_strategy_list,
                            strategy_name=strategy_name)
@@ -195,6 +198,14 @@ def isTrading():
         return False
     else:
         return True
+
+
+def get_sub_strategy_list():
+    output_date = output_db['strategy_output_date'].find().sort('date', -1).limit(1)[0]['date']
+    cursor = output_db['strategy_list'].find({'date': output_date}, {'_id': 0, 'strategy_list': 1})
+    sub_strategy_list = list(cursor)[0]['strategy_list']
+    sub_strategy_list = sub_strategy_list.split(',')
+    return ['gte200','signal']+sub_strategy_list
 
 
 if __name__ == '__main__':
