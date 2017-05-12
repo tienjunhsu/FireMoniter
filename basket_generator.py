@@ -44,10 +44,10 @@ class BasketGenerator(object):
         self.hedge_close = {} #对冲期货上个交易日的收盘价
         self.hedge_multiplier = {'IC':200,'IF':300,'IH':300} #合约乘数
         self.out_strategy_list = []  # 不在策略内的股票，需要从票池和当前持仓里面去掉，并调整权重
-        self.position_files = {u'一号产品': u'0505中金1号收盘持仓统计.xlsx01',
-                               u'术源九州': u'0505九州持仓统计.xls01', u'自强一号': u'自强.xls01',
-                               u'兴鑫': u'兴鑫现货0504.xls', u'华泰吴雪敏': u'吴雪敏.xls01'}
-        self.hedge_position_files = {u'一号产品':None,u'兴鑫':u'兴鑫期货0504.xls'}
+        self.position_files = {u'一号产品': u'0512一号当日现货持仓.xlsx',
+                               u'术源九州': u'0512九州现货持仓信息.xls', u'自强一号': u'自强.xls01',
+                               u'兴鑫': u'兴鑫.xls01', u'华泰吴雪敏': u'吴雪敏.xls01'}
+        self.hedge_position_files = {u'一号产品':None,u'兴鑫':None}
         self.load_config()
 
     def load_config(self):
@@ -87,7 +87,7 @@ class BasketGenerator(object):
                     bull_df['position_num'] = 0
                     bull_df = self.approach_totalAmount(bull_amount, bull_df)
                     plan_df = bull_df
-                    bull_df.to_excel(name + u'裸多计划持仓.xlsx', index=False)
+                    #bull_df.to_excel(name + u'裸多计划持仓.xlsx', index=False)
             ic_amount = product['ic_amount']
             if ic_amount > 0:
                 if self.ic_df is not None:
@@ -102,7 +102,7 @@ class BasketGenerator(object):
                             plan_df = plan_df.append(ic_df)
                         else:
                             plan_df = ic_df
-                        ic_df.to_excel(name + u'IC计划持仓'+str(plan_ic_hand)+u'手.xlsx', index=False)
+                        #ic_df.to_excel(name + u'IC计划持仓'+str(plan_ic_hand)+u'手.xlsx', index=False)
             if_amount = product['if_amount']
             if if_amount > 0:
                 if self.if_df is not None:
@@ -117,7 +117,7 @@ class BasketGenerator(object):
                             plan_df = plan_df.append(if_df)
                         else:
                             plan_df = if_df
-                        if_df.to_excel(name + u'IF计划持仓'+str(plan_if_hand)+u'手.xlsx', index=False)
+                        #if_df.to_excel(name + u'IF计划持仓'+str(plan_if_hand)+u'手.xlsx', index=False)
             ih_amount = product['ih_amount']
             if ih_amount > 0:
                 if self.ih_df is not None:
@@ -132,8 +132,9 @@ class BasketGenerator(object):
                             plan_df = plan_df.append(ih_df)
                         else:
                             plan_df = ih_df
-                        ih_df.to_excel(name + u'IH计划持仓'+str(plan_ih_hand)+u'手.xlsx', index=False)
+                        #ih_df.to_excel(name + u'IH计划持仓'+str(plan_ih_hand)+u'手.xlsx', index=False)
             now_df = self.parse_position(product, self.position_files[name])
+            print('now position value is %s ' % str(now_df.position_value.sum()))
             now_ic_hand, now_if_hand, now_ih_hand = self.parse_hedge_position(product)
             ic_diff_hand = plan_ic_hand - now_ic_hand
             if_diff_hand = plan_if_hand - now_if_hand
@@ -145,6 +146,8 @@ class BasketGenerator(object):
                         {'wind_code': 'first', 'close': 'first', 'weight': sum, 'position_num': sum})
                 plan_df = plan_df.reset_index()
                 now_df = now_df[['code', 'position_num']]
+                now_df = now_df.groupby('code').agg({'position_num':sum})
+                now_df = now_df.reset_index()
                 now_df.columns = ['code', 'old_position_num']
                 plan_df = plan_df.set_index('code')
                 now_df = now_df.set_index('code')
@@ -239,8 +242,8 @@ class BasketGenerator(object):
         reduce_df.loc[:, 'position_num'] = - reduce_df.position_num
         reduce_df.loc[:, 'position_value'] = - reduce_df.position_value
         if ic_diff_hand > 0 or if_diff_hand > 0 or ih_diff_hand > 0:
-            self.save_hedge_to_excel(filename, df, reduce_df, columns, header, ic_diff_hand, if_diff_hand, ih_diff_hand)
-            #self.save_to_excel(filename, df, reduce_df, columns, header)
+            #self.save_hedge_to_excel(filename, df, reduce_df, columns, header, ic_diff_hand, if_diff_hand, ih_diff_hand)
+            self.save_to_excel(filename, df, reduce_df, columns, header)
         else:
             self.save_to_excel(filename, df, reduce_df, columns, header)
 

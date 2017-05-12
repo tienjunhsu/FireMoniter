@@ -1,36 +1,6 @@
 {
     "products": [
-      {
-            "name": "兴鑫",
-            "clientType": "pb",
-            "bull_amount": 4000000.0,
-            "ic_amount": 12100000.0,
-            "if_amount": 12100000.0,
-            "ih_amount": 12100000.0,
-            "insist_code":[],
-            "insist_num":[]
-        },
-      {
-            "name": "华泰吴雪敏",
-            "clientType": "tdx",
-            "bull_amount": 24000000.0,
-            "ic_amount": 0.0,
-            "if_amount": 0.0,
-            "ih_amount": 0.0,
-            "insist_code":[],
-            "insist_num":[]
-        },
-      {
-            "name": "自强一号",
-            "clientType": "pb",
-            "bull_amount": 6700000.0,
-            "ic_amount": 0.0,
-            "if_amount": 0.0,
-            "ih_amount": 0.0,
-            "insist_code":["300641"],
-            "insist_num":[500]
-        },
-      {
+       {
             "name": "一号产品",
             "clientType": "ims",
             "bull_amount": 8000000.0,
@@ -49,6 +19,26 @@
             "ih_amount": 0.0,
             "insist_code":[],
             "insist_num":[]
+        },
+      {
+            "name": "兴鑫",
+            "clientType": "pb",
+            "bull_amount": 4000000.0,
+            "ic_amount": 12100000.0,
+            "if_amount": 12100000.0,
+            "ih_amount": 12100000.0,
+            "insist_code":[],
+            "insist_num":[]
+        },
+      {
+            "name": "自强一号",
+            "clientType": "pb",
+            "bull_amount": 6700000.0,
+            "ic_amount": 0.0,
+            "if_amount": 0.0,
+            "ih_amount": 0.0,
+            "insist_code":["300641"],
+            "insist_num":[500]
         }
     ]
 }

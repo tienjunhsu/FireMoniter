@@ -71,9 +71,31 @@ def parseStrategyListData2mongo():
     db['strategy_list'].insert_one({'date':today,'strategy_list':','.join(strategy_list)})
 
 
+def parseShareStock():
+    #成分股,策略名以share开始，如share50,share300,share500
+    filename = u'F:/firecapital/数据/paper_realoutput_20170507/share.xlsx'
+    sheet_names = ['share500','share300','share50']
+    date = '2017-05-07'
+    strategy_list = []
+    for sheet_name in sheet_names:
+        df = pd.read_excel(filename,sheet_name)
+        if len(df.code.iat[0]) > 0:
+            df.loc[:,'code'] = df.code.str.slice(2,8)
+        df01 = df[~df.code.str.startswith('60')]
+        df = df[df.code.str.startswith('60')]
+        df01['wind_code'] = df01.code +'.SZ'
+        df['wind_code'] = df.code +'.SH'
+        df = df.append(df01)
+        df['date'] = date
+        df['strategy'] = sheet_name
+        db['other_strategy_output01'].insert_many(df.to_dict('records'))
+        strategy_list.append(sheet_name)
+    db['other_strategy_list'].insert_one({'date':date,'strategy_list':','.join(strategy_list)})
+
 
 
 if __name__ == '__main__':
     #parse_all()
-    parseStrategyListData2mongo()
+    #parseStrategyListData2mongo()
+    parseShareStock()
 

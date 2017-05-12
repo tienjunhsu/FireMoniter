@@ -71,12 +71,12 @@ def main():
     df['wind_code'] = df.code +'.SH'
     df = df.append(df01)
     print(len(df))
-    #risk_url = 'http://180.168.45.126:60618/risk/highriskticks/2017-05-01/'
-    risk_url = 'http://192.168.2.112：8000/risk/highriskticks/2017-05-07/'
+    #risk_url = 'http://180.168.45.126:60618/risk/highriskticks/2017-05-14/'
+    risk_url = 'http://192.168.2.112：8000/risk/highriskticks/2017-05-14/'
     high_risk_list = requests.get(risk_url).text.split(',')
     df = df[~df.code.isin(high_risk_list)]
     w.start()
-    date = "2017-05-05"
+    date = "2017-05-14"
     df['float_a_shares'] = w.wsd(','.join(df.wind_code.tolist()),"float_a_shares", date, date, "unit=1;currencyType=;Fill=Previous").Data[0]
     df['close'] = w.wsd(','.join(df.wind_code.tolist()),"close", date, date, "Fill=Previous").Data[0]
     df['mkt'] = df.close * df.float_a_shares
@@ -87,13 +87,13 @@ def main():
     #df['name'] =  w.wsd(','.join(df.wind_code.tolist()),"sec_name", date, date, "Fill=Previous").Data[0]
     #df.to_excel(u'gte200.xlsx',index=False)
     df['position_num'] = 0
-    #plan_df = approach_totalAmount(14000000,df)
-    plan_df = approach_totalAmount(5000000,df)
-    plan_df.to_excel(u'莎莎计划持仓.xlsx',index=False)
-    #plan_df.to_excel(u'中山计划持仓.xlsx',index=False)
-    #now_df = parse_xt_excel_position(u'0505中山持仓统计.xls')
-    #now_df = parse_hs_excel_position(u'0505莎莎持仓统计.xls')
-    now_df = parse_ss_csv_position(u'0505莎莎持仓统计.xls')
+    plan_df = approach_totalAmount(14000000,df)
+    #plan_df = approach_totalAmount(5000000,df)
+    #plan_df.to_excel(u'莎莎计划持仓.xlsx',index=False)
+    plan_df.to_excel(u'中山计划持仓.xlsx',index=False)
+    now_df = parse_xt_excel_position(u'0512中山现货持仓信息.xls')
+    #now_df = parse_hs_excel_position(u'0512莎莎现货持仓信息.xls')
+    #now_df = parse_ss_csv_position(u'0512莎莎现货持仓信息.xls')
     now_df = now_df[['code', 'position_num']]
     now_df.columns = ['code', 'old_position_num']
     plan_df = plan_df.set_index('code')
@@ -116,8 +116,8 @@ def main():
     plan_df['close'] =  result.Data[0]
     plan_df['position_value'] = plan_df.position_num * plan_df.close
     plan_df['name'] =  w.wsd(','.join(plan_df.wind_code.tolist()),"sec_name", date, date, "Fill=Previous").Data[0]
-    format_2_pb(plan_df)
-    #format_2_xt(plan_df)
+    #format_2_pb(plan_df)
+    format_2_xt(plan_df)
 
 
 def calculate_basket_num(df):

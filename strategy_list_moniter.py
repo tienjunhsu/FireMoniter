@@ -136,12 +136,14 @@ class StrategyListMonitor(object):
         #根据指数的均价计算指数的涨跌幅
         self.indexes_chg = []
         for sec in indexes:
-            last_prices = w.wsi(sec, "close", self.last_trade_day + " 09:00:00",self.last_trade_day+ " 15:00:00", "").Data[0]
+            last_prices = w.wsi(sec, "close", self.last_trade_day + " 09:31:00",self.last_trade_day+ " 15:00:00", "").Data[0]
             last_prices = np.mean(last_prices)
-            today_prices = w.wsi(sec, "close", self.today + " 09:00:00",self.today+ " 15:00:00", "").Data[0]
+            today_prices = w.wsi(sec, "close", self.today + " 09:31:00",self.today+ " 15:00:00", "").Data[0]
             today_prices = np.mean(today_prices)
             chg = (today_prices - last_prices)/last_prices
             print(sec)
+            print('last :'+str(last_prices))
+            print('today :'+str(today_prices))
             print(chg)
             self.indexes_chg.append(chg)
 

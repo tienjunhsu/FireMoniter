@@ -187,6 +187,7 @@ def fetch_strategy_list():
     print(strategy_list)
     for strategy in strategy_list:
         fetch_sub_strategy(strategy)
+    fetch_other_strategy() #获取其他单独的策略
 
 
 def fetch_sub_strategy(strategy_name):
@@ -202,6 +203,28 @@ def fetch_sub_strategy(strategy_name):
     df = df.set_index('code')
     g_var.sub_df_dict[strategy_name] = df #子策略的DataFrame
     setattr(now_tick,strategy_name,None) #初始化tick数据值，每个子策略的初始值都设置为None
+
+
+def fetch_other_strategy():
+    #其他的策略
+    cursor = output_db['other_strategy_list'].find({'date': output_date}, {'_id': 0, 'strategy_list': 1})
+    other_strategy_list = list(cursor)[0]['strategy_list']
+    other_strategy_list = other_strategy_list.split(',')
+    global strategy_list
+    strategy_list += other_strategy_list
+    for strategy_name in other_strategy_list:
+        cursor = output_db['other_strategy_output01'].find({'date': output_date, 'strategy': strategy_name},
+                                                          {'_id': 0, 'code': 1, 'weight': 1, 'wind_code': 1})
+        df = pd.DataFrame(list(cursor))
+        df.loc[:,'code'] = df.wind_code
+        df.loc[:,'weight'] = df.weight/df.weight.sum() #监控单独的每个子策略，子策略的权重需要归一化
+        df = df[['code','weight']]
+        df['rt_pct_chg'] = 0.0
+        g_var.secs += df.code.tolist() #把所有的股票代码放进订阅列表里面去
+        df = df.set_index('code')
+        g_var.sub_df_dict[strategy_name] = df #子策略的DataFrame
+        setattr(now_tick,strategy_name,None) #初始化tick数据值，每个子策略的初始值都设置为None
+
 
 
 def fetch_gte200_stock():

@@ -95,20 +95,21 @@ def get_buy():
 
 
 def get_sell():
-    filename = u'测试.xlsx'
-    df = pd.read_excel(filename,converters={'code':str})
+    filename = u'0511一号加1-12.xlsx'
+    df = pd.read_excel(filename,converters={'code': str})
+    df['code_six'] = df.code
     df01 = df[df.code.str.startswith('60')]
     df = df[~df.code.str.startswith('60')]
     df01.loc[:,'code'] = 'SH'+df01.code
     df.loc[:,'code'] = 'SZ'+df.code
     df = df.append(df01,ignore_index=True)
-    #df['position_num01'] = (100*((df.position_num//2)//100)).astype(int)
+    df['position_num01'] = (100*((df.position_num//3)//100)).astype(int)
+    df['position_num02'] = (100*((df.position_num//3)//100)).astype(int)
+    df.loc[:,'position_num'] = (df.position_num - df.position_num01 - df.position_num02).astype(int)
+    df = df[['code','position_num','position_num01','position_num02']]
     # df['position_num02'] = (100*((df.position_num//2)//100)).astype(int)
-    # df.loc[:,'position_num'] = (df.position_num - df.position_num01 - df.position_num02).astype(int)
-    # df = df[['code','position_num','position_num01','position_num02']]
-    df['position_num02'] = (100*((df.position_num//2)//100)).astype(int)
-    df.loc[:,'position_num'] = (df.position_num  - df.position_num02).astype(int)
-    df = df[['code','position_num','position_num02']]
+    # df.loc[:,'position_num'] = (df.position_num  - df.position_num02).astype(int)
+    # df = df[['code','position_num','position_num02']]
     df.to_csv('open_test_pool.csv',index=False)
 
 if __name__ == '__main__':
